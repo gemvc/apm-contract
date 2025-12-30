@@ -138,7 +138,8 @@ class YourProvider extends AbstractApm
             ?? 'https://api.yourprovider.com/v1/traces';
         
         // Load common configuration using parent helpers
-        $this->enabled = $this->parseEnabledFlag($config);
+        $this->enabled = $this->parseBooleanFlag($config, 'enabled', 'APM_ENABLED', true);
+        // Note: parseSampleRate() checks $config['sample_rate'] first, then environment variable
         $this->sampleRate = $this->parseSampleRate($config, 'YOURPROVIDER_SAMPLE_RATE', 1.0);
         $this->traceResponse = $this->parseBooleanFlag($config, 'trace_response', 'YOURPROVIDER_TRACE_RESPONSE', false);
         $this->traceDbQuery = $this->parseBooleanFlag($config, 'trace_db_query', 'YOURPROVIDER_TRACE_DB_QUERY', false);
@@ -177,7 +178,7 @@ class YourProvider extends AbstractApm
             }
             
             // Start root trace (implement your provider's trace creation)
-            $this->rootSpan = $this->startTrace('http-request', $rootAttributes);
+            $this->rootSpan = $this->startSpan('http-request', $rootAttributes);
             
             if (empty($this->rootSpan)) {
                 return;
@@ -185,7 +186,7 @@ class YourProvider extends AbstractApm
             
             // Register shutdown function to flush traces
             register_shutdown_function(function() {
-                $this->flushOnShutdown();
+                $this->flush();
             });
         } catch (\Throwable $e) {
             // Silently fail - don't let APM break the application
@@ -336,6 +337,17 @@ interface ApmInterface
     public static function limitStringForTracing(string $value): string;
     public function getTraceId(): ?string;
     public function flush(): void;
+    
+    // Constants - OpenTelemetry standard
+    public const SPAN_KIND_UNSPECIFIED = 0;
+    public const SPAN_KIND_INTERNAL = 1;
+    public const SPAN_KIND_SERVER = 2;
+    public const SPAN_KIND_CLIENT = 3;
+    public const SPAN_KIND_PRODUCER = 4;
+    public const SPAN_KIND_CONSUMER = 5;
+    
+    public const STATUS_OK = 'OK';
+    public const STATUS_ERROR = 'ERROR';
 }
 ```
 
@@ -436,6 +448,7 @@ if ($apm !== null && $apm->isEnabled()) {
 - `APM_NAME` - APM provider name (e.g., "TraceKit", "Datadog")
 - `APM_ENABLED` - Enable/disable APM (`"true"` or `"false"`)
 - `APM_API_KEY` - Unified API key (works for all providers)
+- `APM_MAX_STRING_LENGTH` - Maximum string length for tracing (default: 2000). Used by `limitStringForTracing()` to truncate long strings
 
 ### Provider-Specific Variables
 
