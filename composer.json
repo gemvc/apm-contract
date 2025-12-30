@@ -48,6 +48,7 @@
     "exclude": [
       "/tests",
       "/TESTING_PROTOCOL.md",
+      "/RELEASE_NOTES.md",
       "/.github",
       "/.phpunit.cache",
       "/.phpunit.result.cache",
