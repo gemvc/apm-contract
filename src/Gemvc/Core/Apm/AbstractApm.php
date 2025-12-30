@@ -98,8 +98,9 @@ abstract class AbstractApm implements ApmInterface
         
         // Store instance in Request object for sharing
         if ($this->request !== null) {
+            /** @phpstan-ignore-next-line - Request class will support apm property in gemvc/library 5.3+ */
             $this->request->apm = $this;
-            // Backward compatibility
+            // Backward compatibility - tracekit property will be supported in gemvc/library 5.3+
             $this->request->tracekit = $this;
         }
         
@@ -224,6 +225,7 @@ abstract class AbstractApm implements ApmInterface
             return http_build_query($bodyData);
         } catch (\Throwable $e) {
             // Silently fail - don't let request body tracing break the application
+            /** @phpstan-ignore-next-line - ProjectHelper::isDevEnvironment() exists in gemvc/library */
             if (ProjectHelper::isDevEnvironment()) {
                 error_log("APM: Failed to get request body for tracing: " . $e->getMessage());
             }

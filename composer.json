@@ -47,13 +47,28 @@
   "archive": {
     "exclude": [
       "/tests",
+      "/TESTING_PROTOCOL.md",
       "/.github",
       "/.phpunit.cache",
+      "/.phpunit.result.cache",
       "/phpunit.xml",
-      "/phpstan.neon"
+      "/phpstan.neon",
+      "/phpstan-tests.neon",
+      "/coverage-report"
     ]
   },
   "minimum-stability": "stable",
-  "prefer-stable": true
+  "prefer-stable": true,
+  "scripts": {
+    "test": "phpunit",
+    "test:unit": "phpunit --testsuite=Unit",
+    "test:integration": "phpunit --testsuite=Integration",
+    "test:protocol": "phpunit --testsuite=Protocol",
+    "test:coverage": "phpunit --coverage-html coverage-report",
+    "phpstan": "phpstan analyse",
+    "phpstan:tests": "phpstan analyse -c phpstan-tests.neon",
+    "phpstan:all": "phpstan analyse && phpstan analyse -c phpstan-tests.neon",
+    "phpstan:baseline": "phpstan analyse --generate-baseline"
+  }
 }
 

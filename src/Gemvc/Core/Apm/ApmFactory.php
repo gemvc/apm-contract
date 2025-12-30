@@ -34,7 +34,8 @@ class ApmFactory
             return null;
         }
         
-        return match(strtolower(trim($apmName))) {
+        $apmNameString = is_string($apmName) ? $apmName : 'TraceKit';
+        return match(strtolower(trim($apmNameString))) {
             'tracekit' => self::createTraceKit($request, $config),
             // Future providers (uncomment when packages are created):
             // 'datadog' => self::createDatadog($request, $config),
@@ -59,8 +60,9 @@ class ApmFactory
             return false;
         }
         
+        $apmNameString = is_string($apmName) ? $apmName : 'TraceKit';
         // Check provider-specific configuration
-        return match(strtolower(trim($apmName))) {
+        return match(strtolower(trim($apmNameString))) {
             'tracekit' => self::isTraceKitConfigured(),
             // Future providers:
             // 'datadog' => self::isDatadogConfigured(),
@@ -87,6 +89,7 @@ class ApmFactory
             return null;
         }
         
+        // @phpstan-ignore-next-line - TraceKitProvider implements ApmInterface, but class may not exist at analysis time
         return new \Gemvc\Core\Apm\Providers\TraceKit\TraceKitProvider($request, $config);
     }
     
