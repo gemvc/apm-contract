@@ -1,4 +1,4 @@
-![YoutubeHeader](https://github.com/user-attachments/assets/bcd88d92-7a64-4cfd-a3a8-7c70e2d60b09)
+![gemvc_header_for_github](https://github.com/user-attachments/assets/25268760-3a70-4077-a268-f0ed69eff938)
 
 # GEMVC APM Contracts
 
