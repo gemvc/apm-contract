@@ -2,7 +2,6 @@
 namespace Gemvc\Core\Apm\Tests\Helpers;
 
 use Gemvc\Core\Apm\AbstractApm;
-use Gemvc\Http\Request;
 
 /**
  * Test APM Provider for testing AbstractApm functionality

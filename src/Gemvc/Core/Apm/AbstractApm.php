@@ -105,7 +105,8 @@ abstract class AbstractApm implements ApmInterface
         
         // Set properties from config array (if provided) or environment variables
         // Config array takes precedence for runtime overrides
-        $this->apmName = $config['apm_name'] ?? $_ENV['APM_NAME'] ?? null;
+        $apmNameValue = $config['apm_name'] ?? $_ENV['APM_NAME'] ?? null;
+        $this->apmName = is_string($apmNameValue) ? $apmNameValue : null;
         
         // Parse enabled flag (handle string 'true'/'false' or boolean)
         $enabledValue = $config['enabled'] ?? $_ENV['APM_ENABLED'] ?? 'true';
@@ -130,10 +131,7 @@ abstract class AbstractApm implements ApmInterface
         
         // Store instance in Request object for sharing
         if ($this->request !== null) {
-            /** @phpstan-ignore-next-line - Request class will support apm property in gemvc/library 5.3+ */
             $this->request->apm = $this;
-            // Backward compatibility - tracekit property will be supported in gemvc/library 5.3+
-            $this->request->tracekit = $this;
         }
         
         // Automatically initialize root trace if Request is provided and tracing is enabled
@@ -162,10 +160,7 @@ abstract class AbstractApm implements ApmInterface
             
             // Store instance in Request object for sharing (if Request is available)
             if ($this->request !== null) {
-                /** @phpstan-ignore-next-line - Request class will support apm property in gemvc/library 5.3+ */
                 $this->request->apm = $this;
-                // Backward compatibility - tracekit property will be supported in gemvc/library 5.3+
-                $this->request->tracekit = $this;
             }
             
             // Automatically initialize root trace if Request is provided and tracing is enabled
@@ -176,7 +171,6 @@ abstract class AbstractApm implements ApmInterface
             return true;
         } catch (\Throwable $e) {
             // Log error in dev environment
-            /** @phpstan-ignore-next-line - ProjectHelper::isDevEnvironment() exists in gemvc/library */
             if (ProjectHelper::isDevEnvironment()) {
                 error_log("APM: Initialization failed: " . $e->getMessage());
             }
@@ -299,7 +293,6 @@ abstract class AbstractApm implements ApmInterface
             return http_build_query($bodyData);
         } catch (\Throwable $e) {
             // Silently fail - don't let request body tracing break the application
-            /** @phpstan-ignore-next-line - ProjectHelper::isDevEnvironment() exists in gemvc/library */
             if (ProjectHelper::isDevEnvironment()) {
                 error_log("APM: Failed to get request body for tracing: " . $e->getMessage());
             }
@@ -428,7 +421,7 @@ abstract class AbstractApm implements ApmInterface
      */
     private static function getMaxStringLength(): int
     {
-        $envValue = $_ENV['APM_MAX_STRING_LENGTH'] ?? $_ENV['TRACEKIT_MAX_STRING_LENGTH'] ?? null;
+        $envValue = $_ENV['APM_MAX_STRING_LENGTH'] ??  null;
         
         if ($envValue === null) {
             return 2000; // Default value

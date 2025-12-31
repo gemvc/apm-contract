@@ -2,3 +2,6 @@ parameters:
     level: 9
     paths:
         - src
+    stubFiles:
+        - stubs/Gemvc/Http/Request.php
+        - stubs/Gemvc/Helper/ProjectHelper.php
