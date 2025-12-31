@@ -28,6 +28,13 @@ abstract class AbstractApm implements ApmInterface
     protected ?Request $request = null;
     
     /**
+     * APM provider name from environment variable
+     * 
+     * @var string|null
+     */
+    protected ?string $apmName = null;
+    
+    /**
      * Whether APM is enabled
      * 
      * @var bool
@@ -84,7 +91,10 @@ abstract class AbstractApm implements ApmInterface
     private static ?float $cachedRandMax = null;
     
     /**
-     * Constructor - Initializes APM provider
+     * Constructor - Initializes APM provider from environment variables
+     * 
+     * At runtime, instances are created with configuration loaded from environment variables.
+     * The init() method is available for setup/configuration via CLI/GUI tools.
      * 
      * @param Request|null $request The HTTP request object
      * @param array<string, mixed> $config Optional configuration override
@@ -93,7 +103,29 @@ abstract class AbstractApm implements ApmInterface
     {
         $this->request = $request;
         
-        // Load provider-specific configuration
+        // Set properties from config array (if provided) or environment variables
+        // Config array takes precedence for runtime overrides
+        $this->apmName = $config['apm_name'] ?? $_ENV['APM_NAME'] ?? null;
+        
+        // Parse enabled flag (handle string 'true'/'false' or boolean)
+        $enabledValue = $config['enabled'] ?? $_ENV['APM_ENABLED'] ?? 'true';
+        $this->enabled = is_string($enabledValue) ? ($enabledValue === 'true' || $enabledValue === '1') : (bool)$enabledValue;
+        
+        // Parse sample rate (convert to float and clamp between 0.0 and 1.0)
+        $sampleRateValue = $config['sample_rate'] ?? $_ENV['APM_SAMPLE_RATE'] ?? 1.0;
+        $this->sampleRate = is_numeric($sampleRateValue) ? max(0.0, min(1.0, (float)$sampleRateValue)) : 1.0;
+        
+        // Parse boolean flags (handle string 'true'/'false' or boolean)
+        $traceResponseValue = $config['trace_response'] ?? $_ENV['APM_TRACE_RESPONSE'] ?? false;
+        $this->traceResponse = is_string($traceResponseValue) ? ($traceResponseValue === 'true' || $traceResponseValue === '1') : (bool)$traceResponseValue;
+        
+        $traceDbQueryValue = $config['trace_db_query'] ?? $_ENV['APM_TRACE_DB_QUERY'] ?? false;
+        $this->traceDbQuery = is_string($traceDbQueryValue) ? ($traceDbQueryValue === 'true' || $traceDbQueryValue === '1') : (bool)$traceDbQueryValue;
+        
+        $traceRequestBodyValue = $config['trace_request_body'] ?? $_ENV['APM_TRACE_REQUEST_BODY'] ?? false;
+        $this->traceRequestBody = is_string($traceRequestBodyValue) ? ($traceRequestBodyValue === 'true' || $traceRequestBodyValue === '1') : (bool)$traceRequestBodyValue;
+        
+        // Load provider-specific configuration from environment variables
         $this->loadConfiguration($config);
         
         // Store instance in Request object for sharing
@@ -107,6 +139,48 @@ abstract class AbstractApm implements ApmInterface
         // Automatically initialize root trace if Request is provided and tracing is enabled
         if ($this->request !== null && $this->isEnabled()) {
             $this->initializeRootTrace();
+        }
+    }
+    
+    /**
+     * Initialize APM provider with configuration (for setup/configuration via CLI/GUI)
+     * 
+     * This method is called during setup/configuration process (via CLI command or GUI)
+     * to configure the provider. It loads provider-specific environment variables and
+     * can be used to set up the .env file or configuration.
+     * 
+     * This is NOT called during runtime object creation - the constructor handles that.
+     * 
+     * @param array<string, mixed> $config Optional configuration override
+     * @return bool True if initialization was successful, false otherwise
+     */
+    public function init(array $config = []): bool
+    {
+        try {
+            // Load provider-specific configuration
+            $this->loadConfiguration($config);
+            
+            // Store instance in Request object for sharing (if Request is available)
+            if ($this->request !== null) {
+                /** @phpstan-ignore-next-line - Request class will support apm property in gemvc/library 5.3+ */
+                $this->request->apm = $this;
+                // Backward compatibility - tracekit property will be supported in gemvc/library 5.3+
+                $this->request->tracekit = $this;
+            }
+            
+            // Automatically initialize root trace if Request is provided and tracing is enabled
+            if ($this->request !== null && $this->isEnabled()) {
+                $this->initializeRootTrace();
+            }
+            
+            return true;
+        } catch (\Throwable $e) {
+            // Log error in dev environment
+            /** @phpstan-ignore-next-line - ProjectHelper::isDevEnvironment() exists in gemvc/library */
+            if (ProjectHelper::isDevEnvironment()) {
+                error_log("APM: Initialization failed: " . $e->getMessage());
+            }
+            return false;
         }
     }
     

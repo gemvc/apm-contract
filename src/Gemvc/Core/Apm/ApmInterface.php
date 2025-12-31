@@ -18,6 +18,25 @@ namespace Gemvc\Core\Apm;
 interface ApmInterface
 {
     /**
+     * Initialize APM provider with configuration
+     * 
+     * This method is called during setup/initialization (via CLI/GUI) to configure
+     * the provider with provider-specific environment variables and configuration.
+     * Each provider implements this to load its own configuration schema.
+     * 
+     * The init() process is also responsible for standardizing the provider name
+     * according to the naming convention (PascalCase, e.g., "TraceKit", "Datadog").
+     * Provider names are standardized by senior developers through this process,
+     * ensuring correct format in APM_NAME environment variable.
+     * 
+     * Note: This is NOT for runtime object creation. Use ApmFactory::create() for that.
+     * 
+     * @param array<string, mixed> $config Optional configuration override
+     * @return bool True if initialization was successful, false otherwise
+     */
+    public function init(array $config = []): bool;
+    
+    /**
      * Check if APM is enabled
      * 
      * @return bool

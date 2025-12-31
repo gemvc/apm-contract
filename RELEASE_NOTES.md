@@ -1,5 +1,151 @@
 # Release Notes
 
+## Version 1.1.0 - Performance & Configuration Improvements
+
+**Release Date:** 2025-12-31
+
+### Overview
+
+This release focuses on performance optimizations and enhanced configuration flexibility. Properties are now set directly in the constructor, reducing overhead and simplifying the initialization process.
+
+### What's New
+
+#### Performance Improvements
+
+- **Reduced Overhead** - Common properties (`$apmName`, `$enabled`, `$sampleRate`, trace flags) are now set once at construction time instead of being checked repeatedly
+- **Direct Property Assignment** - Properties are set directly from `$config` array or `$_ENV` variables in the constructor, before `loadConfiguration()` is called
+- **Simplified Logic** - Removed unnecessary repeated environment variable checks
+
+#### Configuration Enhancements
+
+- **Config Array Support** - Constructor now accepts `$config` array that takes precedence over environment variables
+- **Improved Boolean Parsing** - Enhanced parsing logic that accepts multiple formats:
+  - String values: `'true'`, `'1'`, `'false'`, `'0'`
+  - Boolean values: `true`, `false`
+- **Consistent Parsing** - `ApmFactory::isEnabled()` now uses the same parsing logic as `AbstractApm` constructor for consistency
+
+#### New Property
+
+- **`$apmName` Property** - Added `protected ?string $apmName` property to `AbstractApm` to store the APM provider name once, avoiding repeated environment variable checks
+
+### Changes
+
+#### AbstractApm
+
+- Added `protected ?string $apmName = null;` property
+- Constructor now sets common properties directly from `$config` or `$_ENV` before `loadConfiguration()`:
+  - `$apmName` from `$config['apm_name']` or `$_ENV['APM_NAME']`
+  - `$enabled` from `$config['enabled']` or `$_ENV['APM_ENABLED']` (with improved parsing)
+  - `$sampleRate` from `$config['sample_rate']` or `$_ENV['APM_SAMPLE_RATE']` (with validation and clamping)
+  - `$traceResponse`, `$traceDbQuery`, `$traceRequestBody` from config or environment (with improved parsing)
+- Properties can still be overridden in `loadConfiguration()` if needed
+
+#### ApmFactory
+
+- `isEnabled()` now accepts `'true'`, `'1'`, or boolean `true` for `APM_ENABLED` (consistent with `AbstractApm`)
+- Improved consistency between factory and abstract class parsing logic
+
+### Documentation Updates
+
+- Updated README.md with detailed information about:
+  - Constructor property initialization
+  - Config array precedence
+  - Boolean value formats accepted
+  - Environment variable defaults
+- Updated provider examples to reflect new initialization pattern
+
+### Testing
+
+- Added tests for config array support in constructor
+- Added tests for environment variable fallback
+- Added tests for `'1'` and `'0'` boolean parsing in `ApmFactory`
+- All existing tests pass
+- 31 tests total, 41 assertions, 9 skipped (pending gemvc/library updates)
+
+### Migration Guide
+
+**No breaking changes** - This release is fully backward compatible.
+
+#### For Provider Developers
+
+If your provider's `loadConfiguration()` method was setting common properties, you can now:
+
+1. **Option 1:** Remove the property assignments from `loadConfiguration()` - they're already set in the constructor
+2. **Option 2:** Keep them if you need provider-specific logic or overrides
+
+Example:
+
+```php
+// Before (still works, but redundant)
+protected function loadConfiguration(array $config = []): void
+{
+    $this->enabled = $this->parseBooleanFlag($config, 'enabled', 'APM_ENABLED', true);
+    $this->sampleRate = $this->parseSampleRate($config, 'SAMPLE_RATE', 1.0);
+    // ... provider-specific config
+}
+
+// After (simplified - common properties already set)
+protected function loadConfiguration(array $config = []): void
+{
+    // Common properties already set in constructor
+    // Only set provider-specific properties here
+    $this->apiKey = $config['api_key'] ?? $_ENV['PROVIDER_API_KEY'] ?? '';
+}
+```
+
+#### For Users
+
+No changes required. The new config array support provides additional flexibility:
+
+```php
+// Runtime config override (new capability)
+$apm = ApmFactory::create($request, [
+    'enabled' => true,
+    'sample_rate' => 0.5,
+    'trace_response' => true,
+]);
+```
+
+### Breaking Changes
+
+None - Fully backward compatible.
+
+### Bug Fixes
+
+- Fixed operator precedence issue in boolean parsing
+- Fixed inconsistency between `ApmFactory::isEnabled()` and `AbstractApm` constructor parsing
+
+### Changelog
+
+#### 1.1.0 (2025-01-XX)
+
+**Added:**
+- `$apmName` property to `AbstractApm` class
+- Config array support in constructor (takes precedence over `$_ENV`)
+- Enhanced boolean parsing (accepts `'true'`, `'1'`, `'false'`, `'0'`, or boolean)
+- Consistent parsing logic between `ApmFactory` and `AbstractApm`
+
+**Changed:**
+- Constructor now sets common properties directly from `$config` or `$_ENV` before `loadConfiguration()`
+- `ApmFactory::isEnabled()` now accepts `'1'` as `true` (consistent with `AbstractApm`)
+- Improved performance by setting properties once at construction time
+
+**Fixed:**
+- Operator precedence bug in boolean parsing
+- Inconsistency between factory and abstract class parsing logic
+
+**Documentation:**
+- Updated README.md with constructor initialization details
+- Updated environment variable documentation
+- Updated provider examples
+
+**Tests:**
+- Added tests for config array support
+- Added tests for boolean parsing (`'1'` and `'0'`)
+- Added tests for environment variable fallback
+
+---
+
 ## Version 1.0.0 - Initial Release
 
 **Release Date:** 2025-01-XX
@@ -12,7 +158,10 @@
 
 - **ApmInterface** - Standard contract that all APM providers must implement
 - **AbstractApm** - Base class with shared functionality (request handling, utilities, configuration)
-- **ApmFactory** - Factory pattern for creating APM provider instances based on configuration
+- **ApmFactory** - Universal factory with dynamic provider instantiation (Open/Closed Principle)
+- **Universal Pattern** - Works like `UniversalQueryExecuter` - abstracts provider implementation details
+- **Auto-Discovery** - Providers are automatically discovered, no factory registration needed
+- **Initialization Method** - `init()` method for setup/configuration via CLI/GUI tools
 - **OpenTelemetry Compatible** - Follows OpenTelemetry standards for span kinds and status codes
 - **Request Integration** - Seamless integration with GEMVC Request objects
 - **Configuration Management** - Flexible configuration via environment variables or config arrays
@@ -49,8 +198,10 @@ This package is automatically installed when you install GEMVC or any APM provid
    - Request body extraction utilities
 
 3. **ApmFactory** (`src/Gemvc/Core/Apm/ApmFactory.php`)
-   - Factory for creating APM instances
-   - Auto-discovery of installed providers
+   - Universal factory with dynamic provider instantiation
+   - Auto-discovery of installed providers (no registration needed)
+   - Follows Open/Closed Principle - add providers without modifying factory
+   - Works like `UniversalQueryExecuter` - universal abstraction layer
    - Configuration validation
 
 ### Usage
@@ -155,16 +306,23 @@ To add a new APM provider:
 
 ### Changelog
 
-#### 1.0.0 (2025-01-XX)
+#### 1.0.0 (2025-12-31)
 
 **Added:**
 - Initial release
 - ApmInterface with OpenTelemetry constants
 - AbstractApm base class with shared functionality
-- ApmFactory for provider instantiation
+- ApmFactory with universal dynamic provider instantiation (Open/Closed Principle)
+- Auto-discovery of providers - no factory registration needed
 - Comprehensive test suite
 - PHPStan level 9 static analysis
 - Full documentation
+
+**Architecture:**
+- Universal factory pattern (similar to UniversalQueryExecuter for databases)
+- Dynamic provider instantiation based on APM_NAME environment variable
+- Provider naming convention: `Gemvc\Core\Apm\Providers\{ProviderName}\{ProviderName}Provider`
+- Follows SOLID principles (Open/Closed, Dependency Inversion, Liskov Substitution)
 
 **Infrastructure:**
 - PHPUnit 10 test framework

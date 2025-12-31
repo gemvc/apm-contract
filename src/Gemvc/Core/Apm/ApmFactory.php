@@ -4,15 +4,23 @@ namespace Gemvc\Core\Apm;
 use Gemvc\Http\Request;
 
 /**
- * APM Factory - Creates APM provider instances based on configuration
+ * APM Factory - Universal factory for APM provider instances
  * 
- * Uses APM_NAME environment variable to determine which provider to instantiate.
- * Auto-discovers installed APM provider packages.
+ * Universal factory that dynamically instantiates any APM provider based on
+ * the APM_NAME environment variable. Follows Open/Closed Principle - new providers
+ * can be added without modifying this factory.
  * 
- * @example
- * APM_NAME="TraceKit" -> TraceKitProvider
- * APM_NAME="Datadog" -> DatadogProvider
- * APM_NAME="NewRelic" -> NewRelicProvider
+ * Works like UniversalQueryExecuter for databases - provides a universal abstraction
+ * layer that hides implementation details. The core framework uses ApmFactory::create()
+ * without knowing which provider is installed.
+ * 
+ * Provider naming convention (standardized through init() process):
+ * - APM_NAME="TraceKit" -> Gemvc\Core\Apm\Providers\TraceKit\TraceKitProvider
+ * - APM_NAME="Datadog" -> Gemvc\Core\Apm\Providers\Datadog\DatadogProvider
+ * - APM_NAME="NewRelic" -> Gemvc\Core\Apm\Providers\NewRelic\NewRelicProvider
+ * 
+ * Provider names are standardized by senior developers through the init() process.
+ * Auto-discovers installed APM provider packages. No registration needed!
  * 
  * @package Gemvc\Core\Apm
  */
@@ -21,92 +29,94 @@ class ApmFactory
     /**
      * Create APM instance based on APM_NAME environment variable
      * 
+     * Universal factory method that dynamically instantiates any APM provider
+     * based on the APM_NAME environment variable. Follows Open/Closed Principle -
+     * new providers can be added without modifying this factory.
+     * 
+     * Provider naming convention (standardized through init() process):
+     * - APM_NAME="TraceKit" -> Gemvc\Core\Apm\Providers\TraceKit\TraceKitProvider
+     * - APM_NAME="Datadog" -> Gemvc\Core\Apm\Providers\Datadog\DatadogProvider
+     * 
+     * Creates the provider instance which automatically loads configuration from
+     * environment variables. The init() method is for setup/configuration via CLI/GUI,
+     * not for runtime object creation.
+     * 
      * @param Request|null $request The HTTP request object
      * @param array<string, mixed> $config Optional configuration override
-     * @return ApmInterface|null APM instance or null if disabled/not configured
+     * @return ApmInterface|null APM instance or null if disabled/not configured/not found
      */
     public static function create(?Request $request = null, array $config = []): ?ApmInterface
     {
-        $apmName = $_ENV['APM_NAME'] ?? 'TraceKit';
-        $enabled = ($_ENV['APM_ENABLED'] ?? 'true') === 'true';
-        
-        if (!$enabled) {
+        // Use isEnabled() to get APM name and check if enabled (performance optimized)
+        $providerName = self::isEnabled();
+        if ($providerName === null) {
             return null;
         }
         
-        $apmNameString = is_string($apmName) ? $apmName : 'TraceKit';
-        return match(strtolower(trim($apmNameString))) {
-            'tracekit' => self::createTraceKit($request, $config),
-            // Future providers (uncomment when packages are created):
-            // 'datadog' => self::createDatadog($request, $config),
-            // 'newrelic' => self::createNewRelic($request, $config),
-            // 'elasticapm' => self::createElasticApm($request, $config),
-            // 'opentelemetry' => self::createOpenTelemetry($request, $config),
-            default => null
-        };
-    }
-    
-    /**
-     * Check if APM is enabled and configured
-     * 
-     * @return bool
-     */
-    public static function isEnabled(): bool
-    {
-        $apmName = $_ENV['APM_NAME'] ?? 'TraceKit';
-        $enabled = ($_ENV['APM_ENABLED'] ?? 'true') === 'true';
+        $className = self::buildProviderClassName($providerName);
         
-        if (!$enabled) {
-            return false;
-        }
-        
-        $apmNameString = is_string($apmName) ? $apmName : 'TraceKit';
-        // Check provider-specific configuration
-        return match(strtolower(trim($apmNameString))) {
-            'tracekit' => self::isTraceKitConfigured(),
-            // Future providers:
-            // 'datadog' => self::isDatadogConfigured(),
-            // 'newrelic' => self::isNewRelicConfigured(),
-            // 'elasticapm' => self::isElasticApmConfigured(),
-            default => false
-        };
-    }
-    
-    /**
-     * Create TraceKit provider instance
-     * 
-     * @param Request|null $request
-     * @param array<string, mixed> $config
-     * @return ApmInterface|null
-     */
-    private static function createTraceKit(?Request $request, array $config): ?ApmInterface
-    {
-        // Check if TraceKit provider package is installed
-        if (!class_exists('Gemvc\\Core\\Apm\\Providers\\TraceKit\\TraceKitProvider')) {
+        // Check if provider package is installed
+        if (!class_exists($className)) {
             if (self::isDevEnvironment()) {
-                error_log("APM: TraceKit provider package not installed. Install with: composer require gemvc/apm-tracekit");
+                error_log("APM: Provider '{$providerName}' package not installed. Install with: composer require gemvc/apm-{$providerName}");
             }
             return null;
         }
         
-        // @phpstan-ignore-next-line - TraceKitProvider implements ApmInterface, but class may not exist at analysis time
-        return new \Gemvc\Core\Apm\Providers\TraceKit\TraceKitProvider($request, $config);
+        // Dynamically instantiate the provider
+        try {
+            /** @var ApmInterface */
+            return new $className($request, $config);
+        } catch (\Throwable $e) {
+            if (self::isDevEnvironment()) {
+                error_log("APM: Failed to create provider '{$providerName}': " . $e->getMessage());
+            }
+            return null;
+        }
     }
     
     /**
-     * Check if TraceKit is configured
+     * Check if APM is enabled and has very basic configuration
      * 
-     * Checks both TRACEKIT_API_KEY and APM_API_KEY (for unified API key support)
+     * Returns the APM provider name if enabled, null otherwise.
+     * This is a lightweight check that only verifies APM_NAME is set
+     * and APM_ENABLED is 'true'. Full provider configuration is handled
+     * via the init() command during setup.
      * 
-     * @return bool
+     * Performance optimized - avoids double-checking APM_NAME.
+     * 
+     * @return string|null APM name if enabled and configured, null otherwise
      */
-    private static function isTraceKitConfigured(): bool
+    public static function isEnabled(): ?string
     {
-        return !empty($_ENV['TRACEKIT_API_KEY']) || !empty($_ENV['APM_API_KEY']);
+        $apmName = $_ENV['APM_NAME'] ?? null;
+        if (!is_string($apmName) || $apmName === '') {
+            return null;
+        }
+        $enabled = $_ENV['APM_ENABLED'] ?? 'true';
+        // Accept 'true', '1', or boolean true (consistent with AbstractApm)
+        $isEnabled = is_string($enabled) ? ($enabled === 'true' || $enabled === '1') : (bool)$enabled;
+        if (!$isEnabled) {
+            return null;
+        }
+        return $apmName;
     }
     
     /**
-     * Get ProjectHelper class (to avoid direct dependency)
+     * Build provider class name from provider name
+     * 
+     * Provider names are standardized through the init() process, so no normalization is needed.
+     * 
+     * @param string $providerName Provider name from APM_NAME (e.g., "TraceKit")
+     * @return string Fully qualified class name
+     */
+    private static function buildProviderClassName(string $providerName): string
+    {
+        return "Gemvc\\Core\\Apm\\Providers\\{$providerName}\\{$providerName}Provider";
+    }
+    
+    /**
+     * Check if running in development environment
      * 
      * @return bool
      */
@@ -114,21 +124,5 @@ class ApmFactory
     {
         return ($_ENV['APP_ENV'] ?? '') === 'dev';
     }
-    
-    // Future provider factory methods (uncomment when packages are created):
-    /*
-    private static function createDatadog(?Request $request, array $config): ?ApmInterface
-    {
-        if (!class_exists('Gemvc\\Core\\Apm\\Providers\\Datadog\\DatadogProvider')) {
-            return null;
-        }
-        return new \Gemvc\Core\Apm\Providers\Datadog\DatadogProvider($request, $config);
-    }
-    
-    private static function isDatadogConfigured(): bool
-    {
-        return !empty($_ENV['DATADOG_API_KEY']);
-    }
-    */
 }
 
