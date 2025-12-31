@@ -25,6 +25,8 @@ The `gemvc/apm-contracts` package provides:
 - **`ApmInterface`** - Contract that all APM providers must implement
 - **`AbstractApm`** - Base class with shared functionality (request handling, utilities, configuration)
 - **`ApmFactory`** - Factory for creating APM provider instances based on configuration
+- **`ApmToolkitInterface`** - Contract that all APM provider toolkits must implement
+- **`AbstractApmToolkit`** - Base class with shared functionality for client-side integration and management
 
 This package is **always installed** with GEMVC (required by `gemvc/library`), providing a standardized way to integrate any APM solution (TraceKit, Datadog, New Relic, Elastic APM, OpenTelemetry, etc.) without changing application code.
 
@@ -59,14 +61,19 @@ composer require gemvc/apm-tracekit
 │  │ ApmInterface │  │ AbstractApm  │  │ ApmFactory   │   │
 │  │  (Contract)  │  │  (Base)      │  │ (Universal) │   │
 │  └──────────────┘  └──────────────┘  └──────────────┘   │
+│  ┌──────────────────┐  ┌──────────────────┐              │
+│  │ApmToolkitInterface│ │AbstractApmToolkit│              │
+│  │   (Contract)     │  │    (Base)        │              │
+│  └──────────────────┘  └──────────────────┘              │
 └────────────────────┬────────────────────────────────────┘
                      │ implements/extends
                      │ (Auto-discovered via dynamic instantiation)
         ┌────────────┼────────────┐
         ▼            ▼            ▼          
 ┌─────────────┐ ┌──────────┐ ┌──────────┐   
-│ apm-tracekit│ │ Datadog  │ │ NewRelic │   
+│ apm-tracekit│ │ Datadog  │ │ NewRelic│   
 │  Provider   │ │ Provider │ │ Provider │   
+│  + Toolkit  │ │ + Toolkit│ │ + Toolkit│   
 └─────────────┘ └──────────┘ └──────────┘    
      (Any provider - no factory modification needed!)
 ```
@@ -242,7 +249,161 @@ class YourProvider extends AbstractApm
 }
 ```
 
-### Step 4: No Registration Required!
+### Step 4: Create Toolkit Class
+
+All APM providers must have a Toolkit class for client-side integration and management. Create `src/Gemvc/Core/Apm/Providers/YourProvider/YourProviderToolkit.php`:
+
+```php
+<?php
+namespace Gemvc\Core\Apm\Providers\YourProvider;
+
+use Gemvc\Core\Apm\AbstractApmToolkit;
+
+/**
+ * YourProvider Toolkit - Client-Side Integration & Management
+ */
+class YourProviderToolkit extends AbstractApmToolkit
+{
+    /**
+     * Get provider-specific API key environment variable name
+     */
+    protected function getProviderApiKeyEnvName(): ?string
+    {
+        return 'YOURPROVIDER_API_KEY';
+    }
+    
+    /**
+     * Get provider-specific base URL environment variable name
+     */
+    protected function getProviderBaseUrlEnvName(): ?string
+    {
+        return 'YOURPROVIDER_BASE_URL';
+    }
+    
+    /**
+     * Get provider-specific service name environment variable name
+     */
+    protected function getProviderServiceNameEnvName(): ?string
+    {
+        return 'YOURPROVIDER_SERVICE_NAME';
+    }
+    
+    /**
+     * Get default base URL
+     */
+    protected function getDefaultBaseUrl(): string
+    {
+        return 'https://api.yourprovider.com';
+    }
+    
+    /**
+     * Get registration endpoint
+     */
+    protected function getRegisterEndpoint(): string
+    {
+        return '/v1/integrate/register';
+    }
+    
+    /**
+     * Get verification endpoint
+     */
+    protected function getVerifyEndpoint(): string
+    {
+        return '/v1/integrate/verify';
+    }
+    
+    /**
+     * Get status endpoint
+     */
+    protected function getStatusEndpoint(): string
+    {
+        return '/v1/integrate/status';
+    }
+    
+    /**
+     * Get heartbeat endpoint
+     */
+    protected function getHeartbeatEndpoint(): string
+    {
+        return '/v1/health/heartbeat';
+    }
+    
+    /**
+     * Get health checks endpoint
+     */
+    protected function getHealthChecksEndpoint(): string
+    {
+        return '/api/health-checks';
+    }
+    
+    /**
+     * Get metrics endpoint (use {serviceName} placeholder)
+     */
+    protected function getMetricsEndpoint(): string
+    {
+        return '/api/metrics/services/{serviceName}';
+    }
+    
+    /**
+     * Get alerts summary endpoint
+     */
+    protected function getAlertsSummaryEndpoint(): string
+    {
+        return '/v1/alerts/summary';
+    }
+    
+    /**
+     * Get active alerts endpoint
+     */
+    protected function getActiveAlertsEndpoint(): string
+    {
+        return '/v1/alerts/active';
+    }
+    
+    /**
+     * Get webhooks endpoint
+     */
+    protected function getWebhooksEndpoint(): string
+    {
+        return '/v1/webhooks';
+    }
+    
+    /**
+     * Get subscription endpoint
+     */
+    protected function getSubscriptionEndpoint(): string
+    {
+        return '/v1/billing/subscription';
+    }
+    
+    /**
+     * Get plans endpoint
+     */
+    protected function getPlansEndpoint(): string
+    {
+        return '/v1/billing/plans';
+    }
+    
+    /**
+     * Get checkout session endpoint
+     */
+    protected function getCheckoutSessionEndpoint(): string
+    {
+        return '/v1/billing/create-checkout-session';
+    }
+}
+```
+
+**Toolkit Features:**
+- Account registration and email verification
+- Health check monitoring (synchronous and asynchronous)
+- Service metrics and alerts
+- Webhook management
+- Subscription and billing information
+
+The abstract base class provides all helper methods for API calls, error handling, and JSON parsing. You only need to implement the endpoint paths.
+
+### Step 5: No Registration Required!
 
 **The factory automatically discovers your provider!** No need to modify `ApmFactory.php`.
 
@@ -253,7 +414,7 @@ The factory uses dynamic class instantiation based on the `APM_NAME` environment
 
 This follows the **Open/Closed Principle** - you can add new providers without modifying the factory!
 
-### Step 5: Configuration
+### Step 6: Configuration
 
 Users configure your provider in `.env`:
 
@@ -319,6 +480,43 @@ $request->apm = $apmInstance;  // Primary property
 
 This allows all layers (Controller, UniversalQueryExecuter, Response, etc.) to access the same APM instance.
 
+### 6. Toolkit Usage
+
+APM toolkits are instantiated separately and provide client-side integration features:
+
+```php
+use Gemvc\Core\Apm\Providers\TraceKit\TraceKitToolkit;
+
+// Create toolkit instance
+$toolkit = new TraceKitToolkit();
+
+// Register new service
+$response = $toolkit->registerService('user@example.com');
+if ($response->response_code === 200) {
+    $sessionId = $response->data['session_id'];
+    // Send verification code to user
+}
+
+// Verify code and get API key
+$response = $toolkit->verifyCode($sessionId, $code);
+if ($response->response_code === 200) {
+    $apiKey = $response->data['api_key'];
+    // Save API key to .env or configuration
+}
+
+// Send health heartbeat (asynchronous, non-blocking)
+$toolkit->sendHeartbeatAsync('healthy', [
+    'memory_usage' => memory_get_usage(true),
+    'cpu_usage' => sys_getloadavg()[0] ?? 0,
+]);
+
+// Get service metrics
+$metrics = $toolkit->getMetrics('15m');
+
+// Manage webhooks
+$toolkit->createWebhook('alerts', 'https://example.com/webhook', ['alert.created']);
+```
+
 ## 📚 API Reference
 
 ### ApmInterface
@@ -378,6 +576,49 @@ Universal factory methods (no provider-specific code):
 - Provider name from `APM_NAME` must be in correct PascalCase format (e.g., "TraceKit", "Datadog")
 - Class name format: `Gemvc\Core\Apm\Providers\{ProviderName}\{ProviderName}Provider`
 - Example: `APM_NAME="TraceKit"` → `Gemvc\Core\Apm\Providers\TraceKit\TraceKitProvider`
+
+### ApmToolkitInterface
+
+Contract for all APM provider toolkits. Toolkits handle client-side integration and management:
+
+**Configuration Methods:**
+- `setApiKey(string $apiKey): self` - Set API key
+- `setServiceName(string $serviceName): self` - Set service name
+
+**Account Management:**
+- `registerService(string $email, ?string $organizationName, string $source, array $sourceMetadata): JsonResponse` - Register new service
+- `verifyCode(string $sessionId, string $code): JsonResponse` - Verify email and get API key
+- `getStatus(): JsonResponse` - Check integration status
+
+**Health Monitoring:**
+- `sendHeartbeat(string $status, array $metadata): JsonResponse` - Send synchronous heartbeat
+- `sendHeartbeatAsync(string $status, array $metadata): void` - Send asynchronous heartbeat (non-blocking)
+- `listHealthChecks(): JsonResponse` - List health checks
+
+**Metrics & Alerts:**
+- `getMetrics(string $window): JsonResponse` - Get service metrics
+- `getAlertsSummary(): JsonResponse` - Get alerts overview
+- `getActiveAlerts(int $limit): JsonResponse` - Get active alerts
+
+**Webhooks:**
+- `createWebhook(string $name, string $url, array $events, bool $enabled): JsonResponse` - Create webhook
+- `listWebhooks(): JsonResponse` - List webhooks
+
+**Billing:**
+- `getSubscription(): JsonResponse` - Get subscription info
+- `listPlans(): JsonResponse` - List available plans
+- `createCheckoutSession(string $planId, string $billingInterval, string $source, ?string $successUrl, ?string $cancelUrl): JsonResponse` - Create checkout session
+
+### AbstractApmToolkit
+
+Base class providing shared functionality for all toolkits:
+
+- **Helper Methods** - `createApiCall()`, `parseJsonResponse()`, `makeGetRequest()`, `makePostRequest()`
+- **Error Handling** - Consistent error responses via `JsonResponse`
+- **API Key Management** - Automatic loading from environment variables
+- **Async Support** - Built-in support for non-blocking heartbeats
+
+Provider toolkits extend this class and implement abstract methods for provider-specific endpoint paths.
 
 ## 💡 Examples
 
@@ -446,6 +687,52 @@ if ($apm !== null && $apm->isEnabled()) {
         throw $e;
     }
 }
+```
+
+### Example: Using APM Toolkit
+
+```php
+use Gemvc\Core\Apm\Providers\TraceKit\TraceKitToolkit;
+
+// Initialize toolkit
+$toolkit = new TraceKitToolkit();
+
+// Or with explicit API key and service name
+$toolkit = new TraceKitToolkit('your-api-key', 'my-service');
+
+// Register new service (first-time setup)
+$response = $toolkit->registerService('admin@example.com', 'My Organization');
+if ($response->response_code === 200) {
+    $sessionId = $response->data['session_id'];
+    // User receives verification code via email
+}
+
+// Verify code and activate service
+$response = $toolkit->verifyCode($sessionId, '123456');
+if ($response->response_code === 200) {
+    $apiKey = $response->data['api_key'];
+    // Save to .env: TRACEKIT_API_KEY=$apiKey
+}
+
+// Send periodic health heartbeat (non-blocking)
+$toolkit->sendHeartbeatAsync('healthy', [
+    'memory_usage_mb' => round(memory_get_usage(true) / 1024 / 1024, 2),
+    'cpu_load' => sys_getloadavg()[0] ?? 0,
+]);
+
+// Get service metrics
+$metrics = $toolkit->getMetrics('1h');
+
+// Create webhook for alerts
+$toolkit->createWebhook(
+    'production-alerts',
+    'https://example.com/webhooks/alerts',
+    ['alert.created', 'alert.resolved'],
+    true
+);
+
+// Check subscription status
+$subscription = $toolkit->getSubscription();
 ```
 
 ## 🔗 Related Packages

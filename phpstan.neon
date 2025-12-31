@@ -4,4 +4,8 @@ parameters:
         - src
     stubFiles:
         - stubs/Gemvc/Http/Request.php
+        - stubs/Gemvc/Http/ApiCall.php
+        - stubs/Gemvc/Http/AsyncApiCall.php
+        - stubs/Gemvc/Http/JsonResponse.php
+        - stubs/Gemvc/Http/Response.php
         - stubs/Gemvc/Helper/ProjectHelper.php

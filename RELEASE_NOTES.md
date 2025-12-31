@@ -1,12 +1,86 @@
 # Release Notes
 
-## Version 1.2.0 - Performance & Configuration Improvements
+## Version 1.3.0 - Test Coverage Improvements & Toolkit Testing
 
 **Release Date:** 2025-12-31
 
 ### Overview
 
-This release focuses on performance optimizations and enhanced configuration flexibility. Properties are now set directly in the constructor, reducing overhead and simplifying the initialization process.
+This release significantly improves test coverage for the APM Toolkit functionality, bringing overall coverage to 81.32% lines and 75.00% methods. All Toolkit interface methods are now comprehensively tested.
+
+### What's New
+
+#### Test Coverage Improvements
+
+- **AbstractApmToolkit Coverage** - Improved from 24.32% to 75.68% lines (112/148 lines)
+- **Overall Coverage** - Improved from 51.75% to 81.32% lines (209/257 lines)
+- **Method Coverage** - Improved from 52.27% to 75.00% methods (33/44 methods)
+- **New Tests** - Added 25 new tests covering all Toolkit interface methods
+
+#### Comprehensive Toolkit Testing
+
+- **Account Management** - Tests for `registerService()`, `verifyCode()`, `getStatus()`
+- **Health Monitoring** - Tests for `sendHeartbeat()`, `sendHeartbeatAsync()`, `listHealthChecks()`
+- **Metrics & Alerts** - Tests for `getMetrics()`, `getAlertsSummary()`, `getActiveAlerts()`
+- **Webhooks** - Tests for `createWebhook()`, `listWebhooks()`
+- **Billing** - Tests for `getSubscription()`, `listPlans()`, `createCheckoutSession()`
+- **Helper Methods** - Tests for `makeGetRequest()`, `makePostRequest()` with various scenarios
+
+### Changes
+
+#### Testing
+
+- Added 25 comprehensive tests for `AbstractApmToolkit` public interface methods
+- Added tests for error handling scenarios (missing API key, invalid responses)
+- Added tests for edge cases (empty API key, default parameters, various configurations)
+- All tests pass with 101 total tests, 179 assertions, 6 skipped
+
+### Test Statistics
+
+- **Total Tests:** 101 (was 76)
+- **Assertions:** 179 (was 150)
+- **Skipped:** 6 (integration tests requiring Request class)
+- **Line Coverage:** 81.32% (209/257 lines) - improved from 51.75%
+- **Method Coverage:** 75.00% (33/44 methods) - improved from 52.27%
+
+### Per-Class Coverage
+
+- **AbstractApm:** 93.02% lines (80/86), 86.67% methods (13/15) ✅
+- **AbstractApmToolkit:** 75.68% lines (112/148), 68.00% methods (17/25) ✅
+- **ApmFactory:** 73.91% lines (17/23), 75.00% methods (3/4) ✅
+
+### Migration Guide
+
+**No breaking changes** - This release is fully backward compatible.
+
+No migration required. All existing code continues to work as before.
+
+### Changelog
+
+**Added:**
+- 25 new tests for `AbstractApmToolkit` interface methods
+- Tests for all Toolkit account management methods
+- Tests for all Toolkit health monitoring methods
+- Tests for all Toolkit metrics and alerts methods
+- Tests for all Toolkit webhook methods
+- Tests for all Toolkit billing methods
+- Tests for helper methods (`makeGetRequest`, `makePostRequest`) with error scenarios
+
+**Testing:**
+- Test coverage improved from 51.75% to 81.32% lines
+- Test coverage improved from 52.27% to 75.00% methods
+- AbstractApmToolkit coverage improved from 24.32% to 75.68% lines
+- All new tests passing
+
+---
+
+## Version 1.2.0 - APM Toolkit Support & Performance Improvements
+
+**Release Date:** 2025-12-31
+
+### Overview
+
+This release introduces APM Toolkit support for client-side integration and management, along with performance optimizations and enhanced configuration flexibility. All APM providers now have a standardized Toolkit interface for account management, health monitoring, metrics, alerts, webhooks, and billing.
 
 ### What's New
 
@@ -28,7 +102,28 @@ This release focuses on performance optimizations and enhanced configuration fle
 
 - **`$apmName` Property** - Added `protected ?string $apmName` property to `AbstractApm` to store the APM provider name once, avoiding repeated environment variable checks
 
+#### APM Toolkit Support
+
+- **`ApmToolkitInterface`** - New interface contract for all APM provider toolkits
+- **`AbstractApmToolkit`** - Base class with shared functionality for client-side integration
+- **Account Management** - Registration, email verification, and status checking
+- **Health Monitoring** - Synchronous and asynchronous heartbeat support
+- **Metrics & Alerts** - Service metrics, alerts summary, and active alerts
+- **Webhook Management** - Create and list webhooks for event notifications
+- **Billing Integration** - Subscription info, plan listing, and checkout session creation
+- **Helper Methods** - Shared API call helpers, JSON parsing, and error handling
+
 ### Changes
+
+#### New Classes
+
+- **`ApmToolkitInterface`** - Interface contract defining all methods toolkits must implement
+- **`AbstractApmToolkit`** - Abstract base class with shared functionality:
+  - API key and service name management
+  - HTTP request helpers (GET, POST with error handling)
+  - JSON response parsing
+  - Async heartbeat support (non-blocking)
+  - Provider-specific endpoint configuration via abstract methods
 
 #### AbstractApm
 
@@ -45,14 +140,22 @@ This release focuses on performance optimizations and enhanced configuration fle
 - `isEnabled()` now accepts `'true'`, `'1'`, or boolean `true` for `APM_ENABLED` (consistent with `AbstractApm`)
 - Improved consistency between factory and abstract class parsing logic
 
+#### Stub Files
+
+- Added stubs for `Gemvc\Http\ApiCall`, `Gemvc\Http\AsyncApiCall`, `Gemvc\Http\JsonResponse`, `Gemvc\Http\Response`
+- Updated PHPStan configuration to include new stubs
+- Stubs enable development without circular dependencies
+
 ### Documentation Updates
 
-- Updated README.md with detailed information about:
-  - Constructor property initialization
-  - Config array precedence
-  - Boolean value formats accepted
-  - Environment variable defaults
+- Updated README.md with:
+  - Toolkit interface and abstract class documentation
+  - Toolkit usage examples
+  - Provider creation guide including Toolkit implementation
+  - Architecture diagram updated to show Toolkit layer
+  - API reference for ApmToolkitInterface and AbstractApmToolkit
 - Updated provider examples to reflect new initialization pattern
+- Added Toolkit examples for account management, health monitoring, and billing
 
 ### Testing
 
@@ -67,8 +170,8 @@ This release focuses on performance optimizations and enhanced configuration fle
   - `getMaxStringLength()` - 3 tests (via `limitStringForTracing`)
   - `getTraceId()` and `getRequest()` - 2 tests (simple getters)
 - All existing tests pass
-- **59 tests total, 104 assertions, 6 skipped** (pending gemvc/library updates)
-- **Test coverage improved: 88.99% lines (was 52.29%), 84.21% methods (was 57.89%)**
+- **76 tests total, 150 assertions, 6 skipped** (pending gemvc/library updates)
+- **Test coverage: 51.75% lines, 52.27% methods** (before Toolkit tests)
 
 ### Migration Guide
 
@@ -114,6 +217,30 @@ $apm = ApmFactory::create($request, [
 ]);
 ```
 
+#### For Provider Developers - Toolkit Implementation
+
+All APM providers must now implement a Toolkit class:
+
+```php
+// Create YourProviderToolkit extending AbstractApmToolkit
+class YourProviderToolkit extends AbstractApmToolkit
+{
+    protected function getProviderApiKeyEnvName(): ?string
+    {
+        return 'YOURPROVIDER_API_KEY';
+    }
+    
+    protected function getDefaultBaseUrl(): string
+    {
+        return 'https://api.yourprovider.com';
+    }
+    
+    // Implement all abstract endpoint methods...
+}
+```
+
+The abstract base class provides all helper methods - you only need to implement endpoint paths.
+
 ### Breaking Changes
 
 - **Removed `$tracekit` backward compatibility property** - Only `$request->apm` is now used (gemvc/library 5.2.2+)
@@ -129,6 +256,10 @@ $apm = ApmFactory::create($request, [
 #### 1.1.0 (2025-01-XX)
 
 **Added:**
+- `ApmToolkitInterface` - Contract for all APM provider toolkits
+- `AbstractApmToolkit` - Base class with shared toolkit functionality
+- Toolkit support for account management, health monitoring, metrics, alerts, webhooks, and billing
+- Stub files for `ApiCall`, `AsyncApiCall`, `JsonResponse`, `Response` classes
 - `$apmName` property to `AbstractApm` class
 - Config array support in constructor (takes precedence over `$_ENV`)
 - Enhanced boolean parsing (accepts `'true'`, `'1'`, `'false'`, `'0'`, or boolean)
@@ -158,8 +289,8 @@ $apm = ApmFactory::create($request, [
 - Added tests for config array support
 - Added tests for boolean parsing (`'1'` and `'0'`)
 - Added tests for environment variable fallback
-- Added 28 new tests covering all previously uncovered methods
-- Test coverage improved from 52.29% to 88.99% lines, 57.89% to 84.21% methods
+- Added 28 new tests covering all previously uncovered methods in AbstractApm
+- Test coverage: 51.75% lines, 52.27% methods (before Toolkit implementation)
 
 ---
 

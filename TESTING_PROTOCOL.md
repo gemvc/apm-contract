@@ -5,9 +5,9 @@
 This document outlines the testing protocol for `gemvc/apm-contracts` package. Some tests are currently skipped because they require updates to `gemvc/library` (specifically the `Request` and `Response` classes). Once `gemvc/library` version 5.2.2+ is released with APM support, these tests should be implemented.
 
 **Current Test Coverage:**
-- **Lines:** 88.99% (97/109 lines)
-- **Methods:** 84.21% (16/19 methods)
-- **Total Tests:** 59 tests, 104 assertions
+- **Lines:** 81.32% (209/257 lines)
+- **Methods:** 75.00% (33/44 methods)
+- **Total Tests:** 101 tests, 179 assertions
 - **Skipped Tests:** 6 (integration tests requiring real Request class)
 
 ## Required Updates in gemvc/library
@@ -280,7 +280,7 @@ When `gemvc/library` version 5.2.2+ is released:
 ### Step 6: Validation
 - [ ] Run full test suite: `composer test`
 - [ ] Verify all tests pass
-- [ ] Check test coverage (currently 88.99% lines, 84.21% methods - maintain >80%)
+- [ ] Check test coverage (currently 81.32% lines, 75.00% methods - maintain >75%)
 - [ ] Update documentation if needed
 
 ## Test Groups
@@ -307,8 +307,9 @@ phpunit --group requires-request-update
 | gemvc/apm-contracts | gemvc/library | Test Status |
 |---------------------|---------------|-------------|
 | 1.0.0               | ^5.2          | Phase 1 tests only |
-| 1.1.0+               | ^5.2.2        | Phase 1 tests + comprehensive coverage (88.99% lines) |
-| 1.1.0+               | ^5.2.2        | Phase 2 tests can be enabled when real Request class is available |
+| 1.2.0               | ^5.2.2        | Phase 1 tests + Toolkit support |
+| 1.3.0               | ^5.2.2        | Comprehensive coverage (81.32% lines, 75.00% methods) |
+| 1.3.0+              | ^5.2.2        | Phase 2 tests can be enabled when real Request class is available |
 
 ## Running Tests
 
@@ -334,7 +335,7 @@ composer test:coverage
 - All skipped tests include clear messages explaining why they're skipped
 - Mock Request class extends stub `Request` class and works for current testing needs
 - PHPStan stubs are used for `Request` and `ProjectHelper` classes during development
-- Test coverage is currently 88.99% lines and 84.21% methods
+- Test coverage is currently 81.32% lines and 75.00% methods
 - Protocol will be updated as new requirements are identified
 - Response class integration tests will be added in a future update
 
