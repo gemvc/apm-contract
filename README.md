@@ -95,8 +95,7 @@ composer init
   "license": "MIT",
   "require": {
     "php": ">=8.2",
-    "gemvc/apm-contracts": "^1.0",
-    "gemvc/library": "^5.2"
+    "gemvc/apm-contracts": "^1.0"
   },
   "autoload": {
     "psr-4": {
@@ -274,7 +273,7 @@ When GEMVC starts processing a request:
 
 ```php
 // In ApiService constructor
-$this->tracekit = ApmFactory::create($this->request);
+$this->apm = ApmFactory::create($this->request);
 ```
 
 ### 2. Factory Pattern
@@ -282,12 +281,9 @@ $this->tracekit = ApmFactory::create($this->request);
 `ApmFactory` reads `APM_NAME` from environment and creates the appropriate provider:
 
 ```php
-$apmName = $_ENV['APM_NAME'] ?? 'TraceKit';
-return match($apmName) {
-    'tracekit' => new TraceKitProvider($request),
-    'datadog' => new DatadogProvider($request),
-    // ...
-};
+$apmName = $_ENV['APM_NAME'];
+// Factory dynamically instantiates provider based on APM_NAME
+// Format: Gemvc\Core\Apm\Providers\{ProviderName}\{ProviderName}Provider
 ```
 
 ### 3. Provider Initialization
@@ -319,7 +315,6 @@ The APM instance is stored in `Request` object for sharing:
 
 ```php
 $request->apm = $apmInstance;  // Primary property
-$request->tracekit = $apmInstance;  // Backward compatibility
 ```
 
 This allows all layers (Controller, UniversalQueryExecuter, Response, etc.) to access the same APM instance.
@@ -474,6 +469,19 @@ if ($apm !== null && $apm->isEnabled()) {
 ### Provider-Specific Variables
 
 Each provider may define additional variables (e.g., `TRACEKIT_API_KEY`, `DATADOG_API_KEY`).
+
+## 🛠️ Development Setup
+
+This package uses PHPStan stubs for development to avoid circular dependencies with `gemvc/library`:
+
+- **Stub Files:** Located in `stubs/` directory
+  - `stubs/Gemvc/Http/Request.php` - Stub for Request class
+  - `stubs/Gemvc/Helper/ProjectHelper.php` - Stub for ProjectHelper class
+- **PHPStan Configuration:** Stubs are configured in `phpstan.neon`
+- **Autoload:** Stubs are autoloaded in `composer.json` under `autoload-dev`
+- **Testing:** `MockRequest` class extends stub `Request` for unit testing
+
+**Note:** `gemvc/library` is not in the `require` section to prevent circular dependencies during development. The package will work correctly when installed as a dependency of `gemvc/library` or APM provider packages.
 
 ## 🤝 Contributing
 

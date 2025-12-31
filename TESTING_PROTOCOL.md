@@ -2,7 +2,13 @@
 
 ## Overview
 
-This document outlines the testing protocol for `gemvc/apm-contracts` package. Some tests are currently skipped because they require updates to `gemvc/library` (specifically the `Request` and `Response` classes). Once `gemvc/library` version 5.3+ is released with APM support, these tests should be implemented.
+This document outlines the testing protocol for `gemvc/apm-contracts` package. Some tests are currently skipped because they require updates to `gemvc/library` (specifically the `Request` and `Response` classes). Once `gemvc/library` version 5.2.2+ is released with APM support, these tests should be implemented.
+
+**Current Test Coverage:**
+- **Lines:** 88.99% (97/109 lines)
+- **Methods:** 84.21% (16/19 methods)
+- **Total Tests:** 59 tests, 104 assertions
+- **Skipped Tests:** 6 (integration tests requiring real Request class)
 
 ## Required Updates in gemvc/library
 
@@ -44,18 +50,27 @@ The `Gemvc\Http\Response` class should support:
 - `ApmInterfaceTest` - Interface constants and static methods
 - `AbstractApmTest::testIsEnabled()` - Basic enabled/disabled
 - `AbstractApmTest::testShouldTraceFlags()` - Configuration flags
+- `AbstractApmTest::testGetTraceId()` - Trace ID getter
+- `AbstractApmTest::testGetRequest()` - Request getter
+- `AbstractApmTest::testGetRequestBodyForTracingWithPost()` - POST body extraction
+- `AbstractApmTest::testGetRequestBodyForTracingWithPut()` - PUT body extraction
+- `AbstractApmTest::testGetRequestBodyForTracingWithPatch()` - PATCH body extraction
+- `AbstractApmTest::testShouldSample()` - Sampling logic (5 tests)
+- `AbstractApmTest::testParseBooleanFlag()` - Boolean parsing (4 tests)
+- `AbstractApmTest::testParseSampleRate()` - Sample rate parsing (5 tests)
+- `AbstractApmTest::testGetMaxStringLength()` - String length limiting (3 tests)
 - `ApmFactoryTest::testCreateReturnsNullWhenDisabled()` - Factory disabled state
 - `ApmFactoryTest::testIsEnabledReturnsFalseWhenDisabled()` - Factory enabled check
 
 ✅ **Integration Tests - Using MockRequest**
 - `AbstractApmIntegrationTest::testFullLifecycleWithMockRequest()` - Full lifecycle with mock
 
-### Phase 2: Tests Requiring gemvc/library 5.3+
+### Phase 2: Tests Requiring gemvc/library 5.2.2+
 
 #### 2.1 Request Integration Tests
 
 **Test: `AbstractApmTest::testRequestApmPropertyAssignment()`**
-- **Status**: ⏸️ Skipped until gemvc/library 5.3+
+- **Status**: ⏸️ Skipped until gemvc/library 5.2.2+
 - **Requirements**: `$request->apm` property must be assignable
 - **Implementation**:
   ```php
@@ -65,12 +80,11 @@ The `Gemvc\Http\Response` class should support:
       $apm = new TestApmProvider($request);
       
       $this->assertSame($apm, $request->apm);
-      $this->assertSame($apm, $request->tracekit); // Backward compatibility
   }
   ```
 
 **Test: `AbstractApmTest::testGetRequestBodyForTracingIntegration()`**
-- **Status**: ⏸️ Skipped until gemvc/library 5.3+
+- **Status**: ⏸️ Skipped until gemvc/library 5.2.2+
 - **Requirements**: Request class must have `post`, `put`, `patch` properties
 - **Implementation**:
   ```php
@@ -90,7 +104,7 @@ The `Gemvc\Http\Response` class should support:
   ```
 
 **Test: `AbstractApmTest::testInitializeRootTraceWithRealRequest()`**
-- **Status**: ⏸️ Skipped until gemvc/library 5.3+
+- **Status**: ⏸️ Skipped until gemvc/library 5.2.2+
 - **Requirements**: Request class must implement all required methods
 - **Implementation**:
   ```php
@@ -114,7 +128,7 @@ The `Gemvc\Http\Response` class should support:
 #### 2.2 Factory Integration Tests
 
 **Test: `ApmFactoryTest::testCreateWithRequest()`**
-- **Status**: ⏸️ Skipped until gemvc/library 5.3+
+- **Status**: ⏸️ Skipped until gemvc/library 5.2.2+
 - **Requirements**: Factory must work with real Request objects
 - **Implementation**:
   ```php
@@ -134,7 +148,7 @@ The `Gemvc\Http\Response` class should support:
   ```
 
 **Test: `ApmFactoryTest::testCreateWithConfigOverride()`**
-- **Status**: ⏸️ Skipped until gemvc/library 5.3+
+- **Status**: ⏸️ Skipped until gemvc/library 5.2.2+
 - **Requirements**: Factory must accept config overrides
 - **Implementation**:
   ```php
@@ -156,7 +170,7 @@ The `Gemvc\Http\Response` class should support:
 #### 2.3 Full Integration Tests
 
 **Test: `AbstractApmIntegrationTest::testFullLifecycleWithRealRequest()`**
-- **Status**: ⏸️ Skipped until gemvc/library 5.3+
+- **Status**: ⏸️ Skipped until gemvc/library 5.2.2+
 - **Requirements**: Complete Request class implementation
 - **Implementation**:
   ```php
@@ -196,7 +210,7 @@ The `Gemvc\Http\Response` class should support:
   ```
 
 **Test: `AbstractApmIntegrationTest::testRequestBodyTracingWithRealRequest()`**
-- **Status**: ⏸️ Skipped until gemvc/library 5.3+
+- **Status**: ⏸️ Skipped until gemvc/library 5.2.2+
 - **Requirements**: Request body properties (post, put, patch)
 - **Implementation**:
   ```php
@@ -221,24 +235,24 @@ The `Gemvc\Http\Response` class should support:
 #### 2.4 Response Integration Tests (Future)
 
 **Test: `AbstractApmIntegrationTest::testResponseTracing()`**
-- **Status**: ⏸️ Skipped until gemvc/library 5.3+ (Response class update)
+- **Status**: ⏸️ Skipped until gemvc/library 5.2.2+ (Response class update)
 - **Requirements**: Response class must support APM integration
 - **Note**: This test should be added when Response class is updated
 
 ## Implementation Checklist
 
-When `gemvc/library` version 5.3+ is released:
+When `gemvc/library` version 5.2.2+ is released:
 
 ### Step 1: Update Dependencies
-- [ ] Update `composer.json` to require `gemvc/library: ^5.3`
-- [ ] Run `composer update gemvc/library`
+- [ ] Update `composer.json` to require `gemvc/library: ^5.2.2` (if needed for production)
+- [ ] Note: `gemvc/library` is not in require section during development (using PHPStan stubs)
 - [ ] Verify Request class has `apm` property support
 - [ ] Verify Request class implements all required methods
 
-### Step 2: Remove Mock Request
-- [ ] Remove or deprecate `tests/Helpers/MockRequest.php`
-- [ ] Update all tests to use real `\Gemvc\Http\Request` class
-- [ ] Remove `@group requires-request-update` annotations
+### Step 2: Update Tests
+- [ ] Optionally update tests to use real `\Gemvc\Http\Request` class instead of `MockRequest`
+- [ ] Note: `MockRequest` extends stub `Request` class and works for current testing
+- [ ] Remove `@group requires-request-update` annotations when real Request is used
 
 ### Step 3: Enable Skipped Tests
 - [ ] Remove `markTestSkipped()` calls from all Phase 2 tests
@@ -266,7 +280,7 @@ When `gemvc/library` version 5.3+ is released:
 ### Step 6: Validation
 - [ ] Run full test suite: `composer test`
 - [ ] Verify all tests pass
-- [ ] Check test coverage (aim for >80%)
+- [ ] Check test coverage (currently 88.99% lines, 84.21% methods - maintain >80%)
 - [ ] Update documentation if needed
 
 ## Test Groups
@@ -293,7 +307,8 @@ phpunit --group requires-request-update
 | gemvc/apm-contracts | gemvc/library | Test Status |
 |---------------------|---------------|-------------|
 | 1.0.0               | ^5.2          | Phase 1 tests only |
-| 1.1.0+               | ^5.3          | All tests (Phase 1 + Phase 2) |
+| 1.1.0+               | ^5.2.2        | Phase 1 tests + comprehensive coverage (88.99% lines) |
+| 1.1.0+               | ^5.2.2        | Phase 2 tests can be enabled when real Request class is available |
 
 ## Running Tests
 
@@ -317,7 +332,9 @@ composer test:coverage
 ## Notes
 
 - All skipped tests include clear messages explaining why they're skipped
-- Mock Request class is provided for current testing needs
+- Mock Request class extends stub `Request` class and works for current testing needs
+- PHPStan stubs are used for `Request` and `ProjectHelper` classes during development
+- Test coverage is currently 88.99% lines and 84.21% methods
 - Protocol will be updated as new requirements are identified
 - Response class integration tests will be added in a future update
 

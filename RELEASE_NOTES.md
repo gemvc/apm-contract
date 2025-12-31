@@ -59,8 +59,16 @@ This release focuses on performance optimizations and enhanced configuration fle
 - Added tests for config array support in constructor
 - Added tests for environment variable fallback
 - Added tests for `'1'` and `'0'` boolean parsing in `ApmFactory`
+- Added comprehensive test coverage for all uncovered methods:
+  - `getRequestBodyForTracing()` - 7 tests (POST/PUT/PATCH scenarios)
+  - `shouldSample()` - 5 tests (sampling logic)
+  - `parseBooleanFlag()` - 4 tests (config/env parsing)
+  - `parseSampleRate()` - 5 tests (rate parsing and clamping)
+  - `getMaxStringLength()` - 3 tests (via `limitStringForTracing`)
+  - `getTraceId()` and `getRequest()` - 2 tests (simple getters)
 - All existing tests pass
-- 31 tests total, 41 assertions, 9 skipped (pending gemvc/library updates)
+- **59 tests total, 104 assertions, 6 skipped** (pending gemvc/library updates)
+- **Test coverage improved: 88.99% lines (was 52.29%), 84.21% methods (was 57.89%)**
 
 ### Migration Guide
 
@@ -108,7 +116,8 @@ $apm = ApmFactory::create($request, [
 
 ### Breaking Changes
 
-None - Fully backward compatible.
+- **Removed `$tracekit` backward compatibility property** - Only `$request->apm` is now used (gemvc/library 5.2.2+)
+- **Removed `gemvc/library` from require** - Package now uses PHPStan stubs for development to avoid circular dependencies
 
 ### Bug Fixes
 
@@ -129,6 +138,12 @@ None - Fully backward compatible.
 - Constructor now sets common properties directly from `$config` or `$_ENV` before `loadConfiguration()`
 - `ApmFactory::isEnabled()` now accepts `'1'` as `true` (consistent with `AbstractApm`)
 - Improved performance by setting properties once at construction time
+- Removed `$tracekit` backward compatibility property (only `$apm` property used)
+- Removed `gemvc/library` from require section (using PHPStan stubs for development)
+
+**Removed:**
+- `$request->tracekit` property assignment (backward compatibility removed)
+- `TRACEKIT_MAX_STRING_LENGTH` environment variable fallback
 
 **Fixed:**
 - Operator precedence bug in boolean parsing
@@ -143,6 +158,8 @@ None - Fully backward compatible.
 - Added tests for config array support
 - Added tests for boolean parsing (`'1'` and `'0'`)
 - Added tests for environment variable fallback
+- Added 28 new tests covering all previously uncovered methods
+- Test coverage improved from 52.29% to 88.99% lines, 57.89% to 84.21% methods
 
 ---
 

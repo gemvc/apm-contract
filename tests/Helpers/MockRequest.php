@@ -1,20 +1,21 @@
 <?php
 namespace Gemvc\Core\Apm\Tests\Helpers;
 
+use Gemvc\Http\Request;
+
 /**
  * Mock Request class for testing
  * 
  * TODO: Replace with actual Request class once gemvc/library is updated
  * This mock implements the methods needed by AbstractApm
  */
-class MockRequest
+class MockRequest extends Request
 {
     public ?object $apm = null;
-    public ?object $tracekit = null; // Backward compatibility
     
     public array $post = [];
-    public array $put = [];
-    public array $patch = [];
+    public ?array $put = null;
+    public ?array $patch = null;
     
     private string $method = 'GET';
     private string $uri = '/';
