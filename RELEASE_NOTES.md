@@ -1,6 +1,6 @@
 # Release Notes
 
-## Version 1.1.0 - Performance & Configuration Improvements
+## Version 1.2.0 - Performance & Configuration Improvements
 
 **Release Date:** 2025-12-31
 
