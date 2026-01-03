@@ -1,4 +1,5 @@
 <?php
+
 namespace Gemvc\Core\Apm;
 
 use Gemvc\Http\Request;
@@ -47,45 +48,23 @@ class ApmFactory
      */
     public static function create(?Request $request = null, array $config = []): ?ApmInterface
     {
-        // Use isEnabled() to get APM name and check if enabled (performance optimized)
         $providerName = self::isEnabled();
         if ($providerName === null) {
             return null;
         }
-        
-        $className = self::buildProviderClassName($providerName);
-        
+        // Use provider name directly (init command sets standardized name)
+        $className = "Gemvc\\Core\\Apm\\Providers\\{$providerName}\\{$providerName}Provider";
         // Check if provider package is installed
         if (!class_exists($className)) {
             if (self::isDevEnvironment()) {
-                error_log("APM: Provider '{$providerName}' package not installed. Install with: composer require gemvc/apm-{$providerName}");
+                error_log("APM: Provider '{$providerName}' package not installed. Install with: composer require gemvc/apm-" . strtolower($providerName));
             }
             return null;
         }
-        // Dynamically instantiate the provider
-        try {
-            /** @var ApmInterface */
-            return new $className($request, $config);
-        } catch (\Throwable $e) {
-            if (self::isDevEnvironment()) {
-                error_log("APM: Failed to create provider '{$providerName}': " . $e->getMessage());
-            }
-            return null;
-        }
+        /** @var ApmInterface */
+        return new $className($request, $config);
     }
-    
-    /**
-     * Check if APM is enabled and has very basic configuration
-     * 
-     * Returns the APM provider name if enabled, null otherwise.
-     * This is a lightweight check that only verifies APM_NAME is set
-     * and APM_ENABLED is 'true'. Full provider configuration is handled
-     * via the init() command during setup.
-     * 
-     * Performance optimized - avoids double-checking APM_NAME.
-     * 
-     * @return string|null APM name if enabled and configured, null otherwise
-     */
+
     public static function isEnabled(): ?string
     {
         $apmName = $_ENV['APM_NAME'] ?? null;
@@ -94,34 +73,13 @@ class ApmFactory
         }
         $enabled = $_ENV['APM_ENABLED'] ?? 'true';
         // Accept 'true', '1', or boolean true (consistent with AbstractApm)
-        $isEnabled = is_string($enabled) ? ($enabled === 'true' || $enabled === '1') : (bool)$enabled;
+        $isEnabled = is_string($enabled) ? ($enabled === 'true') : (bool)$enabled;
         if (!$isEnabled) {
             return null;
         }
+        // Return as-is (init command sets it correctly)
         return $apmName;
     }
-    
-    /**
-     * Build provider class name from provider name
-     * 
-     * Normalizes provider name to PascalCase to ensure consistent class name resolution
-     * regardless of case variations in APM_NAME environment variable.
-     * 
-     * Examples:
-     * - "Tracekit" -> "Tracekit"
-     * - "tracekit" -> "Tracekit"
-     * - "TRACEKIT" -> "Tracekit"
-     * - "TraceKit" -> "Tracekit"
-     * 
-     * @param string $providerName Provider name from APM_NAME (e.g., "TraceKit", "tracekit", etc.)
-     * @return string Fully qualified class name
-     */
-    private static function buildProviderClassName(string $providerName): string
-    {
-        $normalized = ucfirst(strtolower($providerName));
-        return "Gemvc\\Core\\Apm\\Providers\\{$normalized}\\{$normalized}Provider";
-    }
-    
     /**
      * Check if running in development environment
      * 
@@ -132,4 +90,3 @@ class ApmFactory
         return ($_ENV['APP_ENV'] ?? '') === 'dev';
     }
 }
-
