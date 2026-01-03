@@ -62,7 +62,6 @@ class ApmFactory
             }
             return null;
         }
-        
         // Dynamically instantiate the provider
         try {
             /** @var ApmInterface */
@@ -112,28 +111,8 @@ class ApmFactory
      */
     private static function buildProviderClassName(string $providerName): string
     {
-        $normalized = self::normalizeProviderName($providerName);
+        $normalized = ucfirst(strtolower($providerName));
         return "Gemvc\\Core\\Apm\\Providers\\{$normalized}\\{$normalized}Provider";
-    }
-
-    /**
-     * Normalize provider name to match class name format
-     * 
-     * Converts case variations to the correct class name format.
-     * Handles special cases like tracekit -> TraceKit.
-     * 
-     * @param string $providerName Provider name from APM_NAME (e.g., "tracekit", "Tracekit", "TRACEKIT")
-     * @return string Normalized provider name (e.g., "TraceKit")
-     */
-    public static function normalizeProviderName(string $providerName): string
-    {
-        // Special case: tracekit -> TraceKit (any case variation)
-        if (strtolower($providerName) === 'tracekit') {
-            return 'TraceKit';
-        }
-        
-        // Default: capitalize first letter (e.g., datadog -> Datadog, newrelic -> Newrelic)
-        return ucfirst($providerName);
     }
     
     /**
