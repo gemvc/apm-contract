@@ -1,5 +1,68 @@
 # Release Notes
 
+## Version 1.3.1 - Provider Name Normalization Bugfix
+
+**Release Date:** 2026-01-03
+
+### Overview
+
+This release fixes a critical bug where APM providers were not being detected in production due to case-sensitivity issues with the `APM_NAME` environment variable. Provider names are now normalized to ensure consistent class name resolution regardless of case variations.
+
+### Bug Fixes
+
+#### Provider Name Normalization
+
+- **Fixed APM Detection Issue** - Provider names are now normalized to PascalCase before building class names
+- **Case-Insensitive Matching** - Any case variation of the provider name (e.g., "Tracekit", "tracekit", "TRACEKIT", "TraceKit") will now correctly resolve to the same provider class
+- **Production Fix** - Resolves issue where APM was not being detected in production environments due to case mismatches in `APM_NAME` environment variable
+
+**Before:**
+```php
+// Different cases = different classes (caused detection failures)
+APM_NAME="Tracekit"  -> Gemvc\Core\Apm\Providers\Tracekit\TracekitProvider
+APM_NAME="tracekit"  -> Gemvc\Core\Apm\Providers\tracekit\tracekitProvider (not found)
+APM_NAME="TraceKit"  -> Gemvc\Core\Apm\Providers\TraceKit\TraceKitProvider (not found)
+```
+
+**After:**
+```php
+// All cases normalize to same class
+APM_NAME="Tracekit"  -> Gemvc\Core\Apm\Providers\Tracekit\TracekitProvider ✅
+APM_NAME="tracekit"  -> Gemvc\Core\Apm\Providers\Tracekit\TracekitProvider ✅
+APM_NAME="TraceKit"  -> Gemvc\Core\Apm\Providers\Tracekit\TracekitProvider ✅
+APM_NAME="TRACEKIT"  -> Gemvc\Core\Apm\Providers\Tracekit\TracekitProvider ✅
+```
+
+### Changes
+
+#### ApmFactory
+
+- Added provider name normalization in `buildProviderClassName()` method (line 114)
+- Provider names are normalized using `ucfirst(strtolower($providerName))` to ensure consistent PascalCase format
+- This ensures that any case variation in `APM_NAME` environment variable will correctly resolve to the provider class
+
+### Migration Guide
+
+**No breaking changes** - This release is fully backward compatible.
+
+**For Users:**
+- No action required
+- Your existing `APM_NAME` environment variable will now work regardless of case (e.g., "Tracekit", "tracekit", "TRACEKIT" all work)
+- Recommended: Use PascalCase format (e.g., "Tracekit") for consistency, but any case will work
+
+**For Provider Developers:**
+- Ensure your provider class follows PascalCase naming convention
+- Example: `Gemvc\Core\Apm\Providers\Tracekit\TracekitProvider` (not `tracekitProvider` or `TRACEKITProvider`)
+
+### Changelog
+
+**Fixed:**
+- Provider name case-sensitivity issue causing APM detection failures in production
+- Added normalization to `ApmFactory::buildProviderClassName()` to convert any case variation to PascalCase
+- All case variations of `APM_NAME` now correctly resolve to the same provider class
+
+---
+
 ## Version 1.3.0 - Test Coverage Improvements & Toolkit Testing
 
 **Release Date:** 2025-12-31

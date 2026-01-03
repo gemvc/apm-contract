@@ -104,9 +104,16 @@ class ApmFactory
     /**
      * Build provider class name from provider name
      * 
-     * Provider names are standardized through the init() process, so no normalization is needed.
+     * Normalizes provider name to PascalCase to ensure consistent class name resolution
+     * regardless of case variations in APM_NAME environment variable.
      * 
-     * @param string $providerName Provider name from APM_NAME (e.g., "TraceKit")
+     * Examples:
+     * - "Tracekit" -> "Tracekit"
+     * - "tracekit" -> "Tracekit"
+     * - "TRACEKIT" -> "Tracekit"
+     * - "TraceKit" -> "Tracekit"
+     * 
+     * @param string $providerName Provider name from APM_NAME (e.g., "TraceKit", "tracekit", etc.)
      * @return string Fully qualified class name
      */
     private static function buildProviderClassName(string $providerName): string
