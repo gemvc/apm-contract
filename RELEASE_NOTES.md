@@ -1,5 +1,83 @@
 # Release Notes
 
+## Version 1.3.2 - Performance Improvement & Error Handling
+
+**Release Date:** 2026-01-03
+
+### Overview
+
+This release improves performance and error handling in `ApmFactory` by adding a class existence check before attempting to instantiate APM provider classes. This prevents unnecessary exception handling and improves efficiency when providers are not installed.
+
+### Performance Improvements
+
+#### ApmFactory Class Existence Check
+
+- **Performance Optimization** - Added `class_exists()` check before instantiating provider classes
+- **Reduced Exception Overhead** - Eliminates try-catch block for non-existent classes, improving performance
+- **Better Error Handling** - Returns `null` gracefully when provider package is not installed instead of throwing exceptions
+- **Dev Environment Logging** - Only logs helpful error messages in development environment when provider is missing
+
+**Before:**
+```php
+// Attempted instantiation could throw exception
+try {
+    return new $className($request, $config);
+} catch (\Throwable $e) {
+    // Exception handling overhead
+    if (self::isDevEnvironment()) {
+        error_log("APM: Failed to create provider...");
+    }
+    return null;
+}
+```
+
+**After:**
+```php
+// Fast class existence check before instantiation
+if (!class_exists($className)) {
+    if (self::isDevEnvironment()) {
+        error_log("APM: Provider '{$providerName}' package not installed...");
+    }
+    return null;
+}
+return new $className($request, $config);
+```
+
+### Changes
+
+#### ApmFactory
+
+- Added `class_exists()` check in `create()` method before provider instantiation (line 58)
+- Removed try-catch block for cleaner, more efficient error handling
+- Improved performance by checking class existence before attempting instantiation
+- Maintains dev environment logging for better developer experience
+
+### Migration Guide
+
+**No breaking changes** - This release is fully backward compatible.
+
+**For Users:**
+- No action required
+- Improved performance when APM providers are not installed
+- Better error messages in development environment
+
+**For Provider Developers:**
+- No changes required
+- Provider packages continue to work as before
+
+### Changelog
+
+**Performance:**
+- Added `class_exists()` check before provider instantiation in `ApmFactory::create()`
+- Removed try-catch block for non-existent classes, reducing exception handling overhead
+- Improved performance when provider packages are not installed
+
+**Error Handling:**
+- Better error handling for missing provider packages
+- Dev environment logging only when provider is not installed
+
+---
+
 ## Version 1.3.1 - Provider Name Normalization Bugfix
 
 **Release Date:** 2026-01-03
