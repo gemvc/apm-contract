@@ -73,4 +73,3 @@
     "phpstan:baseline": "phpstan analyse --generate-baseline"
   }
 }
-

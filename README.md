@@ -750,6 +750,7 @@ $subscription = $toolkit->getSubscription();
 - `APM_TRACE_RESPONSE` - Enable/disable response tracing (accepts `"true"`, `"1"`, `"false"`, `"0"`, or boolean; defaults to `false`)
 - `APM_TRACE_DB_QUERY` - Enable/disable database query tracing (accepts `"true"`, `"1"`, `"false"`, `"0"`, or boolean; defaults to `false`)
 - `APM_TRACE_REQUEST_BODY` - Enable/disable request body tracing (accepts `"true"`, `"1"`, `"false"`, `"0"`, or boolean; defaults to `false`)
+- `APM_SEND_INTERVAL` - Batch send interval in seconds (default: 5). Controls how often batched traces are sent to APM provider. Lower values = more frequent sends with smaller batches. Minimum: 1 second.
 - `APM_API_KEY` - Unified API key (works for all providers)
 - `APM_MAX_STRING_LENGTH` - Maximum string length for tracing (default: 2000). Used by `limitStringForTracing()` to truncate long strings
 

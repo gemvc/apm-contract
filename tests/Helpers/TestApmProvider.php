@@ -79,5 +79,26 @@ class TestApmProvider extends AbstractApm
     {
         return $this->traceId;
     }
+    
+    protected function buildBatchPayload(array $traces): array
+    {
+        // Simple test implementation - return traces as-is
+        return ['resourceSpans' => $traces];
+    }
+    
+    protected function getBatchEndpoint(): string
+    {
+        // Test endpoint URL
+        return 'https://test.example.com/api/traces';
+    }
+    
+    protected function getBatchHeaders(): array
+    {
+        // Test headers
+        return [
+            'Content-Type' => 'application/json',
+            'X-API-Key' => 'test-api-key',
+        ];
+    }
 }
 

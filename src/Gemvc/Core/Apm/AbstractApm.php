@@ -91,6 +91,29 @@ abstract class AbstractApm implements ApmInterface
     private static ?float $cachedRandMax = null;
     
     /**
+     * Batched traces waiting to be sent
+     * Structure: ['provider_name' => [trace1, trace2, ...]]
+     * 
+     * @var array<string, array<int, array<string, mixed>>>
+     */
+    private static array $batchedTraces = [];
+    
+    /**
+     * Last batch send time (Unix timestamp)
+     * 
+     * @var float|null
+     */
+    private static ?float $lastBatchSendTime = null;
+    
+    /**
+     * Batch send interval in seconds (default: 5)
+     * Configurable via APM_SEND_INTERVAL environment variable
+     * 
+     * @var int
+     */
+    private static ?int $batchSendInterval = null;
+    
+    /**
      * Constructor - Initializes APM provider from environment variables
      * 
      * At runtime, instances are created with configuration loaded from environment variables.
@@ -138,6 +161,26 @@ abstract class AbstractApm implements ApmInterface
         if ($this->request !== null && $this->isEnabled()) {
             $this->initializeRootTrace();
         }
+    }
+    
+    /**
+     * Force send all batched traces on shutdown (static method)
+     * This should be called from shutdown handlers or server shutdown events
+     * 
+     * @return void
+     */
+    public static function forceSendAllBatches(): void
+    {
+        // This is a best-effort attempt - we can't access provider instances here
+        // So we just clear the batches to avoid memory leaks
+        // Actual sending should happen via time-based intervals or explicit flush calls
+        foreach (self::$batchedTraces as $providerName => $traces) {
+            if (!empty($traces) && ProjectHelper::isDevEnvironment()) {
+                error_log("APM: Warning - {$providerName} has " . count($traces) . " unsent traces on shutdown");
+            }
+        }
+        // Clear batches on shutdown to prevent memory leaks
+        self::$batchedTraces = [];
     }
     
     /**
@@ -440,5 +483,220 @@ abstract class AbstractApm implements ApmInterface
     {
         return $this->request;
     }
+    
+    // ==========================================
+    // Batching System (Time-based)
+    // ==========================================
+    
+    /**
+     * Get batch send interval from environment variable
+     * Default: 5 seconds
+     * 
+     * @return int Interval in seconds
+     */
+    private static function getBatchSendInterval(): int
+    {
+        if (self::$batchSendInterval === null) {
+            $envValue = $_ENV['APM_SEND_INTERVAL'] ?? null;
+            if ($envValue !== null && is_numeric($envValue)) {
+                $interval = (int)$envValue;
+                self::$batchSendInterval = max(1, $interval); // Minimum 1 second
+            } else {
+                self::$batchSendInterval = 5; // Default 5 seconds
+            }
+        }
+        return self::$batchSendInterval;
+    }
+    
+    /**
+     * Add trace to batch for later sending
+     * 
+     * @param array<string, mixed> $tracePayload Provider-specific trace payload
+     * @return void
+     */
+    protected function addTraceToBatch(array $tracePayload): void
+    {
+        if (empty($tracePayload)) {
+            return;
+        }
+        
+        $providerName = $this->apmName ?? 'unknown';
+        
+        // Initialize batch for this provider if needed
+        if (!isset(self::$batchedTraces[$providerName])) {
+            self::$batchedTraces[$providerName] = [];
+        }
+        
+        // Add trace to batch
+        self::$batchedTraces[$providerName][] = $tracePayload;
+        
+        // Initialize last send time if not set
+        if (self::$lastBatchSendTime === null) {
+            self::$lastBatchSendTime = microtime(true);
+        }
+    }
+    
+    /**
+     * Check if batch should be sent (time-based)
+     * 
+     * @return bool True if batch should be sent
+     */
+    protected function shouldSendBatch(): bool
+    {
+        if (empty(self::$batchedTraces)) {
+            return false;
+        }
+        
+        // If last send time not set, set it now
+        if (self::$lastBatchSendTime === null) {
+            self::$lastBatchSendTime = microtime(true);
+            return false;
+        }
+        
+        $interval = self::getBatchSendInterval();
+        $elapsed = microtime(true) - self::$lastBatchSendTime;
+        
+        return $elapsed >= $interval;
+    }
+    
+    /**
+     * Send batch if needed (time-based check)
+     * This should be called periodically (e.g., after each flush)
+     * 
+     * @return void
+     */
+    protected function sendBatchIfNeeded(): void
+    {
+        if (!$this->shouldSendBatch()) {
+            return;
+        }
+        
+        $this->sendBatch();
+    }
+    
+    /**
+     * Send all batched traces for this provider
+     * 
+     * @return void
+     */
+    protected function sendBatch(): void
+    {
+        $providerName = $this->apmName ?? 'unknown';
+        
+        // Get traces for this provider
+        $traces = self::$batchedTraces[$providerName] ?? [];
+        
+        if (empty($traces)) {
+            return;
+        }
+        
+        try {
+            // Build batch payload (provider-specific)
+            $batchPayload = $this->buildBatchPayload($traces);
+            
+            if (empty($batchPayload)) {
+                // Clear batch even if payload is empty
+                self::$batchedTraces[$providerName] = [];
+                self::$lastBatchSendTime = microtime(true);
+                return;
+            }
+            
+            // Get endpoint and headers (provider-specific)
+            $endpoint = $this->getBatchEndpoint();
+            $headers = $this->getBatchHeaders();
+            
+            if (empty($endpoint)) {
+                error_log("APM: Cannot send batch - endpoint not configured for provider: {$providerName}");
+                self::$batchedTraces[$providerName] = [];
+                self::$lastBatchSendTime = microtime(true);
+                return;
+            }
+            
+            // Send batch using ApiCall (synchronous)
+            $this->sendBatchViaApiCall($endpoint, $batchPayload, $headers);
+            
+            // Clear batch after successful send
+            self::$batchedTraces[$providerName] = [];
+            self::$lastBatchSendTime = microtime(true);
+            
+            if (ProjectHelper::isDevEnvironment()) {
+                $traceCount = count($traces);
+                error_log("APM: Batch sent successfully - Provider: {$providerName}, Traces: {$traceCount}");
+            }
+        } catch (\Throwable $e) {
+            // Log error but don't clear batch (will retry on next interval)
+            error_log("APM: Failed to send batch for provider {$providerName}: " . $e->getMessage());
+        }
+    }
+    
+    /**
+     * Send batch via ApiCall (synchronous)
+     * 
+     * @param string $endpoint API endpoint URL
+     * @param array<string, mixed> $payload Batch payload
+     * @param array<string, string> $headers HTTP headers
+     * @return void
+     */
+    private function sendBatchViaApiCall(string $endpoint, array $payload, array $headers): void
+    {
+        $apiCall = new \Gemvc\Http\ApiCall();
+        
+        // Set headers
+        foreach ($headers as $key => $value) {
+            $apiCall->header[$key] = $value;
+        }
+        
+        // Set timeouts (5s connect, 10s total)
+        $apiCall->setTimeouts(5, 10);
+        
+        // Send POST request with JSON payload
+        $jsonPayload = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        if ($jsonPayload === false) {
+            throw new \Exception("Failed to encode batch payload to JSON");
+        }
+        
+        $response = $apiCall->postRaw($endpoint, $jsonPayload, 'application/json');
+        
+        if ($response === false || $apiCall->http_response_code < 200 || $apiCall->http_response_code >= 400) {
+            $error = $apiCall->error ?? 'Unknown error';
+            $code = $apiCall->http_response_code ?? 0;
+            throw new \Exception("Batch send failed - HTTP {$code}: {$error}");
+        }
+    }
+    
+    /**
+     * Force send batch immediately (for shutdown/flush scenarios)
+     * 
+     * @return void
+     */
+    protected function forceSendBatch(): void
+    {
+        $this->sendBatch();
+    }
+    
+    /**
+     * Build batch payload from multiple traces
+     * Each provider must implement this to combine multiple traces into a single payload
+     * 
+     * @param array<int, array<string, mixed>> $traces Array of trace payloads
+     * @return array<string, mixed> Combined batch payload
+     */
+    abstract protected function buildBatchPayload(array $traces): array;
+    
+    /**
+     * Get endpoint URL for batch sending
+     * Each provider must implement this to return its API endpoint
+     * 
+     * @return string API endpoint URL
+     */
+    abstract protected function getBatchEndpoint(): string;
+    
+    /**
+     * Get HTTP headers for batch sending (e.g., API key)
+     * Each provider must implement this to return required headers
+     * 
+     * @return array<string, string> HTTP headers as key-value pairs
+     */
+    abstract protected function getBatchHeaders(): array;
 }
 

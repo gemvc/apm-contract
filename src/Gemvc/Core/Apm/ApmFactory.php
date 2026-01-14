@@ -54,13 +54,15 @@ class ApmFactory
         }
         // Use provider name directly (init command sets standardized name)
         $className = "Gemvc\\Core\\Apm\\Providers\\{$providerName}\\{$providerName}Provider";
-        // Check if provider package is installed
-        if (!class_exists($className)) {
+        
+        // Check if provider package is installed (class_exists triggers autoloading)
+        if (!class_exists($className, true)) {
             if (self::isDevEnvironment()) {
                 error_log("APM: Provider '{$providerName}' package not installed. Install with: composer require gemvc/apm-" . strtolower($providerName));
             }
             return null;
         }
+        
         /** @var ApmInterface */
         return new $className($request, $config);
     }
@@ -73,7 +75,7 @@ class ApmFactory
         }
         $enabled = $_ENV['APM_ENABLED'] ?? 'true';
         // Accept 'true', '1', or boolean true (consistent with AbstractApm)
-        $isEnabled = is_string($enabled) ? ($enabled === 'true') : (bool)$enabled;
+        $isEnabled = is_string($enabled) ? ($enabled === 'true' || $enabled === '1') : (bool)$enabled;
         if (!$isEnabled) {
             return null;
         }

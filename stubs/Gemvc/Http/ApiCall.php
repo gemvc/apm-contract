@@ -28,6 +28,13 @@ class ApiCall
     public ?string $error = null;
     
     /**
+     * HTTP response code from last request (0 if not executed)
+     * 
+     * @var int
+     */
+    public int $http_response_code = 0;
+    
+    /**
      * Make GET request
      * 
      * @param string $url Request URL
@@ -46,6 +53,19 @@ class ApiCall
      * @return string|false Response body or false on failure
      */
     public function post(string $url, array $data): string|false
+    {
+        return '';
+    }
+    
+    /**
+     * POST with raw body and explicit content type
+     * 
+     * @param string $remoteApiUrl Request URL
+     * @param string $rawBody Raw request body
+     * @param string $contentType Content-Type header value
+     * @return string|false Response body or false on failure
+     */
+    public function postRaw(string $remoteApiUrl, string $rawBody, string $contentType): string|false
     {
         return '';
     }

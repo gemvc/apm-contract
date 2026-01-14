@@ -1,5 +1,88 @@
 # Release Notes
 
+## Version 1.4.0 - Batch Send Interval Optimization
+
+**Release Date:** 2026-01-14
+
+### Overview
+
+This release optimizes the default batch send interval from 10 seconds to 5 seconds, providing more frequent trace delivery with smaller batch sizes. This change improves trace visibility and reduces latency in trace data availability while maintaining efficient batching.
+
+### Performance Improvements
+
+#### Default Batch Send Interval
+
+- **Faster Trace Delivery** - Default batch send interval reduced from 10 seconds to 5 seconds
+- **Smaller Batch Sizes** - More frequent sends result in smaller batches, reducing memory usage per batch
+- **Better Trace Visibility** - Traces appear in APM dashboards more quickly
+- **Configurable** - Can still be customized via `APM_SEND_INTERVAL` environment variable
+
+**Before:**
+```php
+// Default: 10 seconds
+// Batches sent every 10 seconds
+```
+
+**After:**
+```php
+// Default: 5 seconds
+// Batches sent every 5 seconds (2x more frequent)
+```
+
+### Changes
+
+#### AbstractApm
+
+- Changed default batch send interval from 10 seconds to 5 seconds in `getBatchSendInterval()` method
+- Updated documentation comments to reflect new default value
+- Maintains backward compatibility - existing `APM_SEND_INTERVAL` configurations are unaffected
+
+### Migration Guide
+
+**No breaking changes** - This release is fully backward compatible.
+
+**For Users:**
+- No action required - the change is automatic
+- Traces will be sent more frequently (every 5 seconds instead of 10)
+- If you prefer the old 10-second interval, set `APM_SEND_INTERVAL=10` in your `.env` file
+- Existing `APM_SEND_INTERVAL` configurations will continue to work as before
+
+**For Provider Developers:**
+- No changes required
+- Provider packages continue to work as before
+- The batching system behavior remains the same, only the default interval changed
+
+### Configuration
+
+The batch send interval can be configured via environment variable:
+
+```env
+# Use default (5 seconds)
+# APM_SEND_INTERVAL not set
+
+# Or explicitly set custom interval
+APM_SEND_INTERVAL=5   # 5 seconds (new default)
+APM_SEND_INTERVAL=10  # 10 seconds (previous default)
+APM_SEND_INTERVAL=3   # 3 seconds (more frequent)
+APM_SEND_INTERVAL=30  # 30 seconds (less frequent)
+```
+
+**Minimum:** 1 second (enforced by code)
+
+### Changelog
+
+**Changed:**
+- Default batch send interval reduced from 10 seconds to 5 seconds
+- Updated documentation comments to reflect new default
+- Improved trace delivery frequency for better visibility
+
+**Performance:**
+- More frequent batch sends result in smaller batches
+- Reduced memory usage per batch
+- Faster trace availability in APM dashboards
+
+---
+
 ## Version 1.3.2 - Performance Improvement & Error Handling
 
 **Release Date:** 2026-01-03

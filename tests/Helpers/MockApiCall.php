@@ -35,5 +35,17 @@ class MockApiCall extends ApiCall
         $this->error = null;
         return $this->mockResponse;
     }
+    
+    public function postRaw(string $remoteApiUrl, string $rawBody, string $contentType): string|false
+    {
+        $this->capturedUrl[] = $remoteApiUrl;
+        $this->capturedPayload[] = $rawBody; // Store raw body as string
+        if ($this->mockError !== null) {
+            $this->error = $this->mockError;
+            return false;
+        }
+        $this->error = null;
+        return $this->mockResponse;
+    }
 }
 
