@@ -114,6 +114,13 @@ abstract class AbstractApm implements ApmInterface
     private static ?int $batchSendInterval = null;
     
     /**
+     * Total traces sent per provider (for tracking/debugging)
+     * 
+     * @var array<string, int>
+     */
+    private static array $totalTracesSent = [];
+    
+    /**
      * Constructor - Initializes APM provider from environment variables
      * 
      * At runtime, instances are created with configuration loaded from environment variables.
@@ -550,13 +557,23 @@ abstract class AbstractApm implements ApmInterface
         // If last send time not set, set it now
         if (self::$lastBatchSendTime === null) {
             self::$lastBatchSendTime = microtime(true);
+            if (ProjectHelper::isDevEnvironment()) {
+                error_log("APM: First batch - setting initial send time, will send after interval");
+            }
             return false;
         }
         
         $interval = self::getBatchSendInterval();
         $elapsed = microtime(true) - self::$lastBatchSendTime;
+        $shouldSend = $elapsed >= $interval;
         
-        return $elapsed >= $interval;
+        if (ProjectHelper::isDevEnvironment() && $shouldSend) {
+            $providerName = $this->apmName ?? 'unknown';
+            $traces = self::$batchedTraces[$providerName] ?? [];
+            error_log("APM: shouldSendBatch = true - {$providerName} has " . count($traces) . " traces, elapsed: " . round($elapsed, 2) . "s (interval: {$interval}s)");
+        }
+        
+        return $shouldSend;
     }
     
     /**
@@ -568,7 +585,27 @@ abstract class AbstractApm implements ApmInterface
     protected function sendBatchIfNeeded(): void
     {
         if (!$this->shouldSendBatch()) {
+            // Log in dev environment to help debug batching
+            if (ProjectHelper::isDevEnvironment()) {
+                $providerName = $this->apmName ?? 'unknown';
+                $traces = self::$batchedTraces[$providerName] ?? [];
+                if (!empty($traces)) {
+                    $elapsed = self::$lastBatchSendTime !== null 
+                        ? microtime(true) - self::$lastBatchSendTime 
+                        : 0;
+                    $interval = self::getBatchSendInterval();
+                    $remaining = max(0, $interval - $elapsed);
+                    error_log("APM: Batch not sent yet - {$providerName} has " . count($traces) . " traces queued, " . round($remaining, 2) . "s until next send");
+                }
+            }
             return;
+        }
+        
+        // Log that we're about to send
+        if (ProjectHelper::isDevEnvironment()) {
+            $providerName = $this->apmName ?? 'unknown';
+            $traces = self::$batchedTraces[$providerName] ?? [];
+            error_log("APM: Sending batch now - {$providerName} has " . count($traces) . " traces to send");
         }
         
         $this->sendBatch();
@@ -616,13 +653,17 @@ abstract class AbstractApm implements ApmInterface
             $this->sendBatchViaApiCall($endpoint, $batchPayload, $headers);
             
             // Clear batch after successful send
+            $traceCount = count($traces);
+            
+            // Track total traces sent per provider
+            self::$totalTracesSent[$providerName] = (self::$totalTracesSent[$providerName] ?? 0) + $traceCount;
+            $totalSent = self::$totalTracesSent[$providerName];
+            
             self::$batchedTraces[$providerName] = [];
             self::$lastBatchSendTime = microtime(true);
             
-            if (ProjectHelper::isDevEnvironment()) {
-                $traceCount = count($traces);
-                error_log("APM: Batch sent successfully - Provider: {$providerName}, Traces: {$traceCount}");
-            }
+            // Always log successful sends to track trace counts
+            error_log("APM: Batch sent successfully - Provider: {$providerName}, Traces in batch: {$traceCount}, Total sent: {$totalSent}");
         } catch (\Throwable $e) {
             // Log error but don't clear batch (will retry on next interval)
             error_log("APM: Failed to send batch for provider {$providerName}: " . $e->getMessage());
@@ -660,7 +701,15 @@ abstract class AbstractApm implements ApmInterface
         if ($response === false || $apiCall->http_response_code < 200 || $apiCall->http_response_code >= 400) {
             $error = $apiCall->error ?? 'Unknown error';
             $code = $apiCall->http_response_code ?? 0;
+            $responseBody = is_string($response) ? substr($response, 0, 500) : 'No response body';
+            error_log("APM: Batch send failed - HTTP {$code}: {$error}. Response: {$responseBody}");
             throw new \Exception("Batch send failed - HTTP {$code}: {$error}");
+        }
+        
+        // Log successful sends in dev environment for debugging
+        if (ProjectHelper::isDevEnvironment()) {
+            $responsePreview = is_string($response) ? substr($response, 0, 200) : 'No response';
+            error_log("APM: Batch sent successfully - HTTP {$apiCall->http_response_code}. Response preview: {$responsePreview}");
         }
     }
     
@@ -671,6 +720,20 @@ abstract class AbstractApm implements ApmInterface
      */
     protected function forceSendBatch(): void
     {
+        $providerName = $this->apmName ?? 'unknown';
+        $traces = self::$batchedTraces[$providerName] ?? [];
+        
+        if (empty($traces)) {
+            if (ProjectHelper::isDevEnvironment()) {
+                error_log("APM: forceSendBatch called but no traces queued for {$providerName}");
+            }
+            return;
+        }
+        
+        if (ProjectHelper::isDevEnvironment()) {
+            error_log("APM: forceSendBatch - forcing immediate send for {$providerName} with " . count($traces) . " traces");
+        }
+        
         $this->sendBatch();
     }
     
